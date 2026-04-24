@@ -1210,6 +1210,58 @@
 
 
 
+
+        function parseResumeMoneyNumber(value) {
+            if (value === null || value === undefined) {
+                return 0;
+            }
+
+            let raw = String(value).trim();
+
+            if (raw === '') {
+                return 0;
+            }
+
+            raw = raw.replace(/\s+/g, '');
+            raw = raw.replace(/[^0-9,.\-]/g, '');
+
+            if (raw === '' || raw === '-' || raw === '.' || raw === ',') {
+                return 0;
+            }
+
+            const hasComma = raw.includes(',');
+            const hasDot = raw.includes('.');
+
+            if (hasComma && hasDot) {
+                const lastComma = raw.lastIndexOf(',');
+                const lastDot = raw.lastIndexOf('.');
+
+                if (lastComma > lastDot) {
+                    // Format Indonesia: 12.347,13
+                    raw = raw.replace(/\./g, '');
+                    raw = raw.replace(/,/g, '.');
+                } else {
+                    // Format international: 12,347.13
+                    raw = raw.replace(/,/g, '');
+                }
+            } else if (hasComma && !hasDot) {
+                // Format Indonesia tanpa ribuan: 12347,13
+                raw = raw.replace(/,/g, '.');
+            } else if (hasDot && !hasComma) {
+                /*
+                 * Khusus Resume COGM:
+                 * Setelah submit, value bisa menjadi raw decimal: 12347.13.
+                 * Jangan dianggap ribuan, karena itu yang membuat 12347.13
+                 * berubah menjadi 1.234.713,00.
+                 */
+                raw = raw;
+            }
+
+            const numeric = Number(raw);
+
+            return Number.isFinite(numeric) ? numeric : 0;
+        }
+
         function formatResumeMoneyValue(value) {
             const number = Number(value) || 0;
 
@@ -1231,7 +1283,7 @@
             const input = typeof inputOrId === 'string' ? document.getElementById(inputOrId) : inputOrId;
             if (!input) return 0;
 
-            return parseInputNumber(input.value || input.dataset.rawValue || 0);
+            return parseResumeMoneyNumber(input.value || input.dataset.rawValue || 0);
         }
 
         function formatResumeMoneyInput(input) {
@@ -1240,7 +1292,7 @@
 
         function normalizeResumeMoneyInputsForSubmit() {
             document.querySelectorAll('.resume-money-input').forEach(function(input) {
-                input.value = String(getResumeMoneyValue(input));
+                input.value = String(parseResumeMoneyNumber(input.value || input.dataset.rawValue || 0));
             });
         }
 
@@ -3859,6 +3911,17 @@
                 costingForm.addEventListener('submit', function (event) {
                     normalizeMaterialTextInputs();
                     syncForecastHidden();
+
+                    if (typeof normalizeResumeMoneyInputsForSubmit === 'function') {
+                        normalizeResumeMoneyInputsForSubmit();
+                    }
+                    if (typeof normalizeRateInputsForSubmit === 'function') {
+                        normalizeRateInputsForSubmit();
+                    }
+                    if (typeof normalizeCycleTimeInputsForSubmit === 'function') {
+                        normalizeCycleTimeInputsForSubmit();
+                    }
+
                     refreshUnpricedRecap();
 
                     const submitter = event.submitter;
@@ -4096,6 +4159,23 @@
         document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('form').forEach(function(formElement) {
                 formElement.addEventListener('submit', normalizeCycleTimeInputsForSubmit);
+            });
+        });
+
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('form').forEach(function(formElement) {
+                formElement.addEventListener('submit', function() {
+                    if (typeof normalizeResumeMoneyInputsForSubmit === 'function') {
+                        normalizeResumeMoneyInputsForSubmit();
+                    }
+                    if (typeof normalizeRateInputsForSubmit === 'function') {
+                        normalizeRateInputsForSubmit();
+                    }
+                    if (typeof normalizeCycleTimeInputsForSubmit === 'function') {
+                        normalizeCycleTimeInputsForSubmit();
+                    }
+                });
             });
         });
 
