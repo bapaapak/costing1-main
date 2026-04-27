@@ -16,7 +16,11 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // All app routes require authentication
 Route::middleware('auth')->group(function () {
 
-    if (app()->environment(['local', 'development'])) {
+    Route::get('/profile', function () {
+        return view('profile.show');
+    })->name('profile.show');
+
+        if (app()->environment(['local', 'development'])) {
         // Test endpoint hanya tersedia di environment development.
         Route::get('/test', function () {
             return response()->json([

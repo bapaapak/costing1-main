@@ -309,26 +309,183 @@
                 </div>
                 @endif
             </nav>
-            <div class="sidebar-footer" style="padding: 0.75rem 1rem; border-top: 1px solid rgba(255,255,255,0.08);">
+            <div class="sidebar-footer" style="padding: 0.75rem 1rem; border-top: 1px solid #e2e8f0; background: rgba(255,255,255,0.96);">
                 @auth
-                <div style="display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.5rem;">
-                    <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; color: rgba(255,255,255,0.7);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    @php
+                        $currentUser = auth()->user();
+                        $displayName = $currentUser->name ?? 'User';
+                        $displayRole = $currentUser->role ?? 'user';
+                        $displayEmail = $currentUser->email ?? '-';
+                        $profileUrl = Route::has('profile.show')
+                            ? route('profile.show', absolute: false)
+                            : '#';
+                    @endphp
+
+                    <style>
+                        .sidebar-user-module {
+                            padding: 0.85rem;
+                            border-radius: 16px;
+                            background: #ffffff;
+                            border: 1px solid #dbeafe;
+                            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
+                        }
+
+                        .sidebar-user-profile-link {
+                            display: flex;
+                            align-items: center;
+                            gap: 0.7rem;
+                            color: inherit;
+                            text-decoration: none;
+                            margin-bottom: 0.75rem;
+                        }
+
+                        .sidebar-user-avatar {
+                            width: 38px;
+                            height: 38px;
+                            border-radius: 12px;
+                            background: #2563eb;
+                            color: #ffffff;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 0.9rem;
+                            font-weight: 800;
+                            flex-shrink: 0;
+                        }
+
+                        .sidebar-user-meta {
+                            min-width: 0;
+                            flex: 1;
+                        }
+
+                        .sidebar-user-name {
+                            font-size: 0.78rem;
+                            font-weight: 800;
+                            color: #0f172a;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                        }
+
+                        .sidebar-user-role {
+                            margin-top: 0.15rem;
+                            font-size: 0.62rem;
+                            color: #2563eb;
+                            text-transform: uppercase;
+                            letter-spacing: 0.06em;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            font-weight: 800;
+                        }
+
+                        .sidebar-user-email {
+                            margin-top: 0.15rem;
+                            font-size: 0.62rem;
+                            color: #64748b;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                        }
+
+                        .sidebar-user-actions {
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 0.5rem;
+                        }
+
+                        .sidebar-user-action-link,
+                        .sidebar-user-action-btn {
+                            width: 100%;
+                            min-height: 34px;
+                            border: 1px solid #bfdbfe;
+                            border-radius: 10px;
+                            background: #eff6ff;
+                            color: #1d4ed8;
+                            font-size: 0.68rem;
+                            font-family: inherit;
+                            font-weight: 800;
+                            cursor: pointer;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 0.35rem;
+                            text-decoration: none;
+                            transition: all 0.15s ease;
+                        }
+
+                        .sidebar-user-action-link:hover,
+                        .sidebar-user-action-btn:hover {
+                            background: #dbeafe;
+                            color: #1e40af;
+                        }
+
+                        .sidebar-user-logout-btn {
+                            background: #fee2e2;
+                            border-color: #fecaca;
+                            color: #dc2626;
+                        }
+
+                        .sidebar-user-logout-btn:hover {
+                            background: #fecaca;
+                            border-color: #fca5a5;
+                            color: #b91c1c;
+                        }
+
+                        .sidebar-user-action-link svg,
+                        .sidebar-user-action-btn svg {
+                            width: 14px;
+                            height: 14px;
+                            flex-shrink: 0;
+                        }
+
+                        .sidebar-user-logout-form {
+                            margin: 0;
+                        }
+                    </style>
+
+                    <div class="sidebar-user-module">
+                        <a href="{{ $profileUrl }}" class="sidebar-user-profile-link" @if($profileUrl === '#') onclick="return false;" @endif>
+                            <div class="sidebar-user-avatar">
+                                {{ strtoupper(substr($displayName, 0, 1)) }}
+                            </div>
+
+                            <div class="sidebar-user-meta">
+                                <div class="sidebar-user-name">{{ $displayName }}</div>
+                                <div class="sidebar-user-role">{{ $displayRole }}</div>
+                                <div class="sidebar-user-email">{{ $displayEmail }}</div>
+                            </div>
+                        </a>
+
+                        <div class="sidebar-user-actions">
+                            <a href="{{ $profileUrl }}" class="sidebar-user-action-link" @if($profileUrl === '#') onclick="return false;" @endif>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="12" cy="7" r="4"/>
+                                </svg>
+                                Profile
+                            </a>
+
+                            <form method="POST" action="{{ route('logout') }}" class="sidebar-user-logout-form">
+                                @csrf
+                                <button type="submit" class="sidebar-user-action-btn sidebar-user-logout-btn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                        <polyline points="16 17 21 12 16 7"/>
+                                        <line x1="21" y1="12" x2="9" y2="12"/>
+                                    </svg>
+                                    Logout
+                                </button>
+                            </form>
+                        </div>
                     </div>
-                    <div style="overflow: hidden;">
-                        <div style="font-size: 0.75rem; font-weight: 600; color: rgba(255,255,255,0.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ auth()->user()->name }}</div>
-                        <div style="font-size: 0.625rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.05em;">{{ auth()->user()->role ?? 'user' }}</div>
-                    </div>
-                </div>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" style="width: 100%; padding: 0.375rem; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: rgba(255,255,255,0.7); font-size: 0.6875rem; font-family: inherit; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.375rem; transition: all 0.15s;" onmouseenter="this.style.background='rgba(255,255,255,0.15)'" onmouseleave="this.style.background='rgba(255,255,255,0.08)'">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                        Logout
-                    </button>
-                </form>
                 @endauth
-                <p class="sidebar-footer-text" style="margin-top: 0.5rem;">© {{ date('Y') }} Dharma Electrindo Mfg</p>
+
+                <p class="sidebar-footer-text" style="margin-top: 0.5rem; color: #64748b;">
+                    © {{ date('Y') }} Dharma Electrindo Mfg
+                </p>
             </div>
         </aside>
 
@@ -740,39 +897,30 @@
     </script>
 
     <script>
-        // Hide loading overlay once the page is fully loaded
-        (function () {
-            function hideOverlay() {
-                var overlay = document.getElementById('page-loading-overlay');
-                if (overlay) {
-                    overlay.classList.add('hidden');
-                    setTimeout(function () { overlay.style.display = 'none'; }, 320);
-                }
+        function forceHideAllLoadingOverlays() {
+            hideAppLoading();
+
+            const pageOverlay = document.getElementById('page-loading-overlay');
+            if (pageOverlay) {
+                pageOverlay.classList.add('hidden');
+                pageOverlay.style.display = 'none';
             }
 
-            if (document.readyState === 'complete') {
-                hideOverlay();
-            } else {
-                window.addEventListener('load', hideOverlay);
+            const appOverlay = document.getElementById('app-loading-overlay');
+            if (appOverlay) {
+                appOverlay.classList.add('is-hidden');
             }
+        }
 
-            // Show overlay when navigating away (clicking links / submitting forms)
-            document.addEventListener('click', function (e) {
-                var target = e.target.closest('a[href]');
-                if (!target) return;
-                var href = target.getAttribute('href');
-                if (!href || href.startsWith('#') || href.startsWith('javascript') || target.getAttribute('target') === '_blank') return;
-                if (overlay) {
-                    overlay.style.display = 'flex';
-                    overlay.classList.remove('hidden');
-                }
-                    showAppLoading();
-                    HTMLFormElement.prototype.submit.call(form);
-            });
-        })();
+        document.addEventListener('DOMContentLoaded', forceHideAllLoadingOverlays);
+        window.addEventListener('load', forceHideAllLoadingOverlays);
+        window.addEventListener('pageshow', forceHideAllLoadingOverlays);
+
+        // Safety fallback supaya overlay tidak bisa stuck terlalu lama.
+        setTimeout(forceHideAllLoadingOverlays, 1500);
     </script>
 
     @yield('scripts')
 </body>
 
-</html></html>
+</html>
