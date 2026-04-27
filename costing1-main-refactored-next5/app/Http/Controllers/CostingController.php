@@ -211,6 +211,24 @@ class CostingController extends Controller
             $applyProjectFilters($projectQuery);
         });
 
+        /*
+         * Dashboard mode C:
+         * - trackingProjectCount = semua project yang ada di menu Project / Tracking Document
+         * - costingProjectCount  = project yang sudah punya data costing di costing_data
+         *
+         * Period dashboard tetap dipakai untuk data costing.
+         * Project tracking sengaja tidak dibatasi period costing karena menu Project
+         * menampilkan dokumen/project tracking, bukan hanya project yang sudah masuk costing_data.
+         */
+        $trackingProjectScope = DocumentRevision::query()
+            ->whereHas('project', function ($projectQuery) use ($applyProjectFilters) {
+                $applyProjectFilters($projectQuery);
+            });
+
+        $trackingProjectCount = (clone $trackingProjectScope)
+            ->distinct('document_project_id')
+            ->count('document_project_id');
+
         $a00ProjectCount = (clone $projectStatusScope)
             ->where('a00', 'ada')
             ->distinct('document_project_id')
@@ -389,8 +407,10 @@ class CostingController extends Controller
         $a00ProjectCount = (int) ($statusProjectCountsByLabel['A00 (RFQ/RFI)'] ?? 0);
         $a04ProjectCount = (int) ($statusProjectCountsByLabel['A04 (Canceled/Failed)'] ?? 0);
         $a05ProjectCount = (int) ($statusProjectCountsByLabel['A05 (Die Go/Berhasil)'] ?? 0);
-        $totalProjectCount = (int) $costingData->count();
-        $statusProjectTotal = $totalProjectCount;
+        $costingProjectCount = (int) $costingData->count();
+        $pendingFormCostingCount = max(0, (int) $trackingProjectCount - (int) $costingProjectCount);
+        $totalProjectCount = $costingProjectCount;
+        $statusProjectTotal = $costingProjectCount;
 
         $statusProjectData = collect([
             [
@@ -876,6 +896,9 @@ class CostingController extends Controller
             'materialBreakdown',
             'periods',
             'periodDisplayLabel',
+            'trackingProjectCount',
+            'costingProjectCount',
+            'pendingFormCostingCount',
             'totalProjectCount',
             'a00ProjectCount',
             'a04ProjectCount',

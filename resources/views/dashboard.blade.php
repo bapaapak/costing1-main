@@ -60,8 +60,11 @@
     <!-- KPI Cards -->
     <div class="kpi-grid">
         <div class="kpi-card">
-            <div class="kpi-label">Total Project ({{ $periodDisplayLabel }})</div>
-            <div class="kpi-value">{{ number_format($totalProjectCount, 0, ',', '.') }}</div>
+            <div class="kpi-label">Total Project Tracking</div>
+            <div class="kpi-value">{{ number_format($trackingProjectCount ?? 0, 0, ',', '.') }}</div>
+            <div style="margin-top: 0.4rem; font-size: 0.72rem; color: rgba(255,255,255,0.7);">
+                Dari menu Project / Tracking
+            </div>
             <div class="kpi-icon">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="4" width="18" height="16" rx="2"/>
@@ -70,6 +73,22 @@
                 </svg>
             </div>
         </div>
+
+        <div class="kpi-card" style="background: #0f766e; border-color: #0d9488;">
+            <div class="kpi-label" style="color: white;">Project Sudah Costing ({{ $periodDisplayLabel }})</div>
+            <div class="kpi-value" style="color: white;">{{ number_format($costingProjectCount ?? $totalProjectCount, 0, ',', '.') }}</div>
+            <div style="margin-top: 0.4rem; font-size: 0.72rem; color: rgba(255,255,255,0.75);">
+                Pending Form Costing: {{ number_format($pendingFormCostingCount ?? 0, 0, ',', '.') }}
+            </div>
+            <div class="kpi-icon" style="color: white;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <path d="M9 15l2 2 4-4"/>
+                </svg>
+            </div>
+        </div>
+
         <div class="kpi-card" style="background: #3b82f6;">
             <div class="kpi-label" style="color: white;">A00 (RFQ/RFI)</div>
             <div class="kpi-value" style="color: white;">{{ number_format($a00ProjectCount, 0, ',', '.') }}</div>

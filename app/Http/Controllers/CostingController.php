@@ -211,6 +211,24 @@ class CostingController extends Controller
             $applyProjectFilters($projectQuery);
         });
 
+        /*
+         * Dashboard mode C:
+         * - trackingProjectCount = semua project yang ada di menu Project / Tracking Document
+         * - costingProjectCount  = project yang sudah punya data costing di costing_data
+         *
+         * Period dashboard tetap dipakai untuk data costing.
+         * Project tracking sengaja tidak dibatasi period costing karena menu Project
+         * menampilkan dokumen/project tracking, bukan hanya project yang sudah masuk costing_data.
+         */
+        $trackingProjectScope = DocumentRevision::query()
+            ->whereHas('project', function ($projectQuery) use ($applyProjectFilters) {
+                $applyProjectFilters($projectQuery);
+            });
+
+        $trackingProjectCount = (clone $trackingProjectScope)
+            ->distinct('document_project_id')
+            ->count('document_project_id');
+
         $a00ProjectCount = (clone $projectStatusScope)
             ->where('a00', 'ada')
             ->distinct('document_project_id')
@@ -389,8 +407,10 @@ class CostingController extends Controller
         $a00ProjectCount = (int) ($statusProjectCountsByLabel['A00 (RFQ/RFI)'] ?? 0);
         $a04ProjectCount = (int) ($statusProjectCountsByLabel['A04 (Canceled/Failed)'] ?? 0);
         $a05ProjectCount = (int) ($statusProjectCountsByLabel['A05 (Die Go/Berhasil)'] ?? 0);
-        $totalProjectCount = (int) $costingData->count();
-        $statusProjectTotal = $totalProjectCount;
+        $costingProjectCount = (int) $costingData->count();
+        $pendingFormCostingCount = max(0, (int) $trackingProjectCount - (int) $costingProjectCount);
+        $totalProjectCount = $costingProjectCount;
+        $statusProjectTotal = $costingProjectCount;
 
         $statusProjectData = collect([
             [
@@ -876,6 +896,9 @@ class CostingController extends Controller
             'materialBreakdown',
             'periods',
             'periodDisplayLabel',
+            'trackingProjectCount',
+            'costingProjectCount',
+            'pendingFormCostingCount',
             'totalProjectCount',
             'a00ProjectCount',
             'a04ProjectCount',
@@ -1763,375 +1786,6 @@ class CostingController extends Controller
         return $responseService->buildThinRedirectPage($redirect);
     }
 
-
-    public function importUmh(Request $request)
-    {
-        $request->validate([
-            'import_umh_file' => ['required', 'file', 'mimes:xls,xlsx'],
-            'costing_data_id' => ['required', 'integer', 'exists:costing_data,id'],
-        ]);
-
-        try {
-            $costingData = CostingData::findOrFail((int) $request->input('costing_data_id'));
-            $rows = $this->parseUmhExcelToCycleRows($request->file('import_umh_file')->getPathname());
-
-            if (count($rows) === 0) {
-                return back()->with('error', 'Data Cycle Time tidak ditemukan di file UMH. Pastikan file memiliki data dari B17, C17, F17, dan G17 ke bawah.');
-            }
-
-            /*
-             * Import UMH hanya mengisi section Cycle Time.
-             * Jadi tidak perlu lewat store(), karena store() butuh StoreCostingRequest penuh.
-             * Cukup update kolom cycle_times pada costing_data yang sedang aktif.
-             */
-            $costingData->update([
-                'cycle_times' => $rows,
-            ]);
-
-            $trackingRevisionId = $request->input('tracking_revision_id');
-
-            return redirect()
-                ->route('form', [
-                    'id' => $costingData->id,
-                    'tracking_revision_id' => $trackingRevisionId,
-                ])
-                ->with('success', 'Import UMH berhasil. ' . count($rows) . ' baris Cycle Time masuk.');
-        } catch (\Throwable $e) {
-            \Log::error('CostingController@importUmh error', [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
-
-            return back()->with('error', 'Gagal import UMH: ' . $e->getMessage());
-        }
-    }
-
-    private function parseUmhExcelToCycleRows(string $filePath): array
-    {
-        $reader = IOFactory::createReaderForFile($filePath);
-        $reader->setReadDataOnly(true);
-        $spreadsheet = $reader->load($filePath);
-
-        $bestRows = [];
-
-        foreach ($spreadsheet->getAllSheets() as $sheet) {
-            if (!$sheet instanceof Worksheet) {
-                continue;
-            }
-
-            $rows = $this->extractUmhRowsFromSheet($sheet);
-
-            if (count($rows) > count($bestRows)) {
-                $bestRows = $rows;
-            }
-        }
-
-        return $bestRows;
-    }
-
-    private function extractUmhRowsFromSheet(Worksheet $sheet): array
-    {
-        /*
-         * Fixed UMH format sesuai template user:
-         * B17 ke bawah = No
-         * C17 ke bawah = Process
-         * F17 ke bawah = Qty
-         * G17 ke bawah = Time (hour)
-         *
-         * Stop saat kolom B kosong.
-         * Contoh: B17-B37 terisi, B38 kosong, B40 terisi -> yang dibaca hanya B17-B37.
-         */
-        $fixedRows = $this->extractUmhRowsFromFixedUserTemplate($sheet);
-
-        if (count($fixedRows) > 0) {
-            return $fixedRows;
-        }
-
-        $highestRow = (int) $sheet->getHighestDataRow();
-        $highestColumn = Coordinate::columnIndexFromString($sheet->getHighestDataColumn());
-
-        $headerRow = null;
-        $headerMap = [];
-
-        for ($row = 1; $row <= min($highestRow, 120); $row++) {
-            $candidateMap = [];
-
-            for ($col = 1; $col <= $highestColumn; $col++) {
-                $value = trim((string) $sheet->getCell(Coordinate::stringFromColumnIndex($col) . $row)->getFormattedValue());
-                $field = $this->mapUmhHeader($value);
-
-                if ($field !== null && !isset($candidateMap[$field])) {
-                    $candidateMap[$field] = $col;
-                }
-            }
-
-            if (isset($candidateMap['process']) && (isset($candidateMap['qty']) || isset($candidateMap['time_hour']) || isset($candidateMap['time_sec']))) {
-                $headerRow = $row;
-                $headerMap = $candidateMap;
-                break;
-            }
-        }
-
-        if ($headerRow !== null) {
-            return $this->extractUmhRowsByHeader($sheet, $headerRow, $headerMap, $highestRow);
-        }
-
-        return $this->extractUmhRowsByFixedColumns($sheet, $highestRow);
-    }
-
-    private function extractUmhRowsFromFixedUserTemplate(Worksheet $sheet): array
-    {
-        $rows = [];
-        $highestRow = (int) $sheet->getHighestRow();
-
-        for ($row = 17; $row <= min($highestRow, 5000); $row++) {
-            $no = trim((string) $sheet->getCell('B' . $row)->getFormattedValue());
-
-            // Aturan user: kalau kolom No / B kosong, pembacaan berhenti total.
-            if ($no === '') {
-                break;
-            }
-
-            $process = trim((string) $sheet->getCell('C' . $row)->getFormattedValue());
-            $qty = $this->getUmhNumericCell($sheet, 'F' . $row);
-            $timeHour = $this->getUmhNumericCell($sheet, 'G' . $row);
-
-            // Time sec dan Time sec / 1Qty dihitung dari Time Hour.
-            $timeSec = $timeHour > 0 ? ($timeHour * 3600) : 0;
-            $timeSecPerQty = ($qty > 0 && $timeSec > 0) ? ($timeSec / $qty) : 0;
-
-            // Kalau B terisi tapi row sebenarnya header/teks, skip.
-            if ($this->looksLikeUmhHeader($no) || $this->looksLikeUmhHeader($process)) {
-                continue;
-            }
-
-            $rows[] = $this->buildUmhCycleRow($process, $qty, $timeHour, $timeSec, $timeSecPerQty);
-        }
-
-        return $rows;
-    }
-
-    private function extractUmhRowsByHeader(Worksheet $sheet, int $headerRow, array $headerMap, int $highestRow): array
-    {
-        $rows = [];
-        $emptyStreak = 0;
-
-        for ($row = $headerRow + 1; $row <= $highestRow; $row++) {
-            $process = $this->getUmhCell($sheet, $headerMap, 'process', $row);
-            $qty = $this->getUmhNumericCellByMap($sheet, $headerMap, 'qty', $row);
-            $timeHour = $this->getUmhNumericCellByMap($sheet, $headerMap, 'time_hour', $row);
-            $timeSec = $this->getUmhNumericCellByMap($sheet, $headerMap, 'time_sec', $row);
-            $timeSecPerQty = $this->getUmhNumericCellByMap($sheet, $headerMap, 'time_sec_per_qty', $row);
-
-            $hasData = $process !== '' || $qty > 0 || $timeHour > 0 || $timeSec > 0 || $timeSecPerQty > 0;
-
-            if (!$hasData) {
-                $emptyStreak++;
-                if ($emptyStreak >= 30) {
-                    break;
-                }
-                continue;
-            }
-
-            $emptyStreak = 0;
-            $rows[] = $this->buildUmhCycleRow($process, $qty, $timeHour, $timeSec, $timeSecPerQty);
-        }
-
-        return $rows;
-    }
-
-    private function extractUmhRowsByFixedColumns(Worksheet $sheet, int $highestRow): array
-    {
-        /*
-         * Fallback format umum UMH:
-         * B/C = Process
-         * D/E = Qty
-         * E/F = Time Hour
-         * F/G = Time Sec
-         * G/H = Time Sec / 1Qty
-         */
-        $candidateSets = [
-            ['process' => 'B', 'qty' => 'C', 'time_hour' => 'D', 'time_sec' => 'E', 'time_sec_per_qty' => 'F'],
-            ['process' => 'C', 'qty' => 'D', 'time_hour' => 'E', 'time_sec' => 'F', 'time_sec_per_qty' => 'G'],
-            ['process' => 'D', 'qty' => 'E', 'time_hour' => 'F', 'time_sec' => 'G', 'time_sec_per_qty' => 'H'],
-        ];
-
-        $bestRows = [];
-
-        foreach ($candidateSets as $columns) {
-            $rows = [];
-            $emptyStreak = 0;
-
-            for ($row = 1; $row <= min($highestRow, 1000); $row++) {
-                $process = trim((string) $sheet->getCell($columns['process'] . $row)->getFormattedValue());
-                $qty = $this->getUmhNumericCell($sheet, $columns['qty'] . $row);
-                $timeHour = $this->getUmhNumericCell($sheet, $columns['time_hour'] . $row);
-                $timeSec = $this->getUmhNumericCell($sheet, $columns['time_sec'] . $row);
-                $timeSecPerQty = $this->getUmhNumericCell($sheet, $columns['time_sec_per_qty'] . $row);
-
-                if ($this->looksLikeUmhHeader($process)) {
-                    continue;
-                }
-
-                $hasData = $process !== '' || $qty > 0 || $timeHour > 0 || $timeSec > 0 || $timeSecPerQty > 0;
-
-                if (!$hasData) {
-                    $emptyStreak++;
-                    if ($emptyStreak >= 40 && count($rows) > 0) {
-                        break;
-                    }
-                    continue;
-                }
-
-                $emptyStreak = 0;
-
-                if ($process === '' && $qty <= 0 && $timeHour <= 0 && $timeSec <= 0 && $timeSecPerQty <= 0) {
-                    continue;
-                }
-
-                $rows[] = $this->buildUmhCycleRow($process, $qty, $timeHour, $timeSec, $timeSecPerQty);
-            }
-
-            if (count($rows) > count($bestRows)) {
-                $bestRows = $rows;
-            }
-        }
-
-        return $bestRows;
-    }
-
-    private function buildUmhCycleRow(string $process, float $qty, float $timeHour, float $timeSec, float $timeSecPerQty): array
-    {
-        if ($timeSec <= 0 && $timeHour > 0) {
-            $timeSec = $timeHour * 3600;
-        }
-
-        if ($timeHour <= 0 && $timeSec > 0) {
-            $timeHour = $timeSec / 3600;
-        }
-
-        if ($timeSecPerQty <= 0 && $qty > 0 && $timeSec > 0) {
-            $timeSecPerQty = $timeSec / $qty;
-        }
-
-        return [
-            'process' => $process,
-            'qty' => $qty,
-            'time_hour' => $timeHour,
-            'time_sec' => $timeSec,
-            'time_sec_per_qty' => $timeSecPerQty,
-        ];
-    }
-
-    private function mapUmhHeader(string $value): ?string
-    {
-        $normalized = preg_replace('/[^a-z0-9]/', '', strtolower(trim($value)));
-
-        if ($normalized === '') {
-            return null;
-        }
-
-        $aliases = [
-            'process' => [
-                'process',
-                'proses',
-                'operation',
-                'operationname',
-                'processname',
-                'nama proses',
-                'namaproses',
-            ],
-            'qty' => [
-                'qty',
-                'quantity',
-                'jumlah',
-            ],
-            'time_hour' => [
-                'timehour',
-                'timehours',
-                'hour',
-                'hours',
-                'jam',
-            ],
-            'time_sec' => [
-                'timesec',
-                'timesecond',
-                'seconds',
-                'second',
-                'sec',
-                'detik',
-            ],
-            'time_sec_per_qty' => [
-                'timesec1qty',
-                'timesecqty',
-                'timesecperqty',
-                'sec1qty',
-                'secperqty',
-                'timeperqty',
-            ],
-        ];
-
-        foreach ($aliases as $field => $fieldAliases) {
-            if (in_array($normalized, $fieldAliases, true)) {
-                return $field;
-            }
-        }
-
-        return null;
-    }
-
-    private function getUmhCell(Worksheet $sheet, array $headerMap, string $field, int $row): string
-    {
-        if (!isset($headerMap[$field])) {
-            return '';
-        }
-
-        $column = Coordinate::stringFromColumnIndex((int) $headerMap[$field]);
-
-        return trim((string) $sheet->getCell($column . $row)->getFormattedValue());
-    }
-
-    private function getUmhNumericCellByMap(Worksheet $sheet, array $headerMap, string $field, int $row): float
-    {
-        if (!isset($headerMap[$field])) {
-            return 0;
-        }
-
-        $column = Coordinate::stringFromColumnIndex((int) $headerMap[$field]);
-
-        return $this->getUmhNumericCell($sheet, $column . $row);
-    }
-
-    private function getUmhNumericCell(Worksheet $sheet, string $cellAddress): float
-    {
-        $cell = $sheet->getCell($cellAddress);
-
-        try {
-            $rawValue = $cell->getCalculatedValue();
-        } catch (\Throwable $e) {
-            $rawValue = $cell->getValue();
-        }
-
-        if (is_int($rawValue) || is_float($rawValue)) {
-            return (float) $rawValue;
-        }
-
-        if (is_string($rawValue) && is_numeric(trim($rawValue))) {
-            return (float) trim($rawValue);
-        }
-
-        return $this->toFloatValue($cell->getFormattedValue());
-    }
-
-    private function looksLikeUmhHeader(string $value): bool
-    {
-        $normalized = preg_replace('/[^a-z0-9]/', '', strtolower(trim($value)));
-
-        return in_array($normalized, ['process', 'proses', 'operation', 'qty', 'quantity', 'timehour', 'timesec'], true);
-    }
-
-
     public function importCogm(Request $request)
     {
         $request->validate([
@@ -2216,7 +1870,7 @@ class CostingController extends Controller
                 ->route('form', [
                     'id' => $costingData->id,
                     'tracking_revision_id' => $request->input('tracking_revision_id'),
-                ])
+                ], false)
                 ->with('success', 'Import COGM berhasil. ' . count($rows) . ' baris material masuk ke tabel Material.');
         } catch (\Throwable $e) {
             DB::rollBack();
