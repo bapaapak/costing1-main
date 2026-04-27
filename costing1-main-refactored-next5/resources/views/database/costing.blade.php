@@ -319,13 +319,13 @@
                             <td>{{ $revisiValue }}</td>
                             <td>{{ number_format((float) ($costing->forecast ?? 0), 0, ',', '.') }}</td>
                             <td>{{ number_format((float) ($costing->project_period ?? 0), 0, ',', '.') }} Years</td>
-                            <td>Rp {{ number_format($costing->material_cost, 0, ',', '.') }}</td>
+                            <td>Rp {{ number_format((float) $costing->material_cost, 2, ',', '.') }}</td>
                             <td>{{ number_format($materialPct, 2) }}%</td>
-                            <td>Rp {{ number_format($costing->labor_cost, 0, ',', '.') }}</td>
+                            <td>Rp {{ number_format((float) $costing->labor_cost, 2, ',', '.') }}</td>
                             <td>{{ number_format($processPct, 2) }}%</td>
-                            <td>Rp {{ number_format($effectiveOverheadCost, 0, ',', '.') }}</td>
+                            <td>Rp {{ number_format((float) $effectiveOverheadCost, 2, ',', '.') }}</td>
                             <td>{{ number_format($toolingPct, 2) }}%</td>
-                            <td><strong>Rp {{ number_format($cogm, 0, ',', '.') }}</strong></td>
+                            <td><strong>Rp {{ number_format((float) $cogm, 2, ',', '.') }}</strong></td>
                             <td>{{ $costing->updated_at ? \Carbon\Carbon::parse($costing->updated_at)->format('d-m-Y H:i') : '-' }}</td>
                             <td>
                                 <div class="costing-action-group">

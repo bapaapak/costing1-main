@@ -641,16 +641,18 @@
             const okButton = document.getElementById('app-confirm-ok');
             const notifyOkButton = document.getElementById('app-notify-ok');
 
-            okButton.addEventListener('click', function () {
-                if (typeof appConfirmCurrentOnConfirm === 'function') {
-                    const callback = appConfirmCurrentOnConfirm;
-                    closeAppConfirm();
-                    callback();
-                    return;
-                }
+            if (okButton) {
+                okButton.addEventListener('click', function () {
+                    if (typeof appConfirmCurrentOnConfirm === 'function') {
+                        const callback = appConfirmCurrentOnConfirm;
+                        closeAppConfirm();
+                        callback();
+                        return;
+                    }
 
-                closeAppConfirm();
-            });
+                    closeAppConfirm();
+                });
+            }
 
             if (notifyOkButton) {
                 notifyOkButton.addEventListener('click', function () {
@@ -664,16 +666,11 @@
                     return;
                 }
 
-                if (form.dataset.confirmed === 'true') {
-                    return;
-                }
-
                 event.preventDefault();
                 const message = form.dataset.confirmMessage || 'Apakah Anda yakin ingin melanjutkan?';
                 openAppConfirm(message, function () {
-                    form.dataset.confirmed = 'true';
                     showAppLoading();
-                    form.submit();
+                    HTMLFormElement.prototype.submit.call(form);
                 });
             });
 
@@ -765,29 +762,12 @@
                 if (!target) return;
                 var href = target.getAttribute('href');
                 if (!href || href.startsWith('#') || href.startsWith('javascript') || target.getAttribute('target') === '_blank') return;
-                // Only show for same-origin navigation
-                try {
-                    var url = new URL(href, window.location.origin);
-                    if (url.origin !== window.location.origin) return;
-                } catch (_) { return; }
-                var overlay = document.getElementById('page-loading-overlay');
                 if (overlay) {
                     overlay.style.display = 'flex';
                     overlay.classList.remove('hidden');
                 }
-            });
-
-            document.addEventListener('submit', function (e) {
-                if (e.defaultPrevented) return;
-
-                var form = e.target;
-                if (form && form.dataset && form.dataset.skipLoadingOverlay === 'true') return;
-
-                var overlay = document.getElementById('page-loading-overlay');
-                if (overlay) {
-                    overlay.style.display = 'flex';
-                    overlay.classList.remove('hidden');
-                }
+                    showAppLoading();
+                    HTMLFormElement.prototype.submit.call(form);
             });
         })();
     </script>

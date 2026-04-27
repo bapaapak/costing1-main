@@ -641,16 +641,18 @@
             const okButton = document.getElementById('app-confirm-ok');
             const notifyOkButton = document.getElementById('app-notify-ok');
 
-            okButton.addEventListener('click', function () {
-                if (typeof appConfirmCurrentOnConfirm === 'function') {
-                    const callback = appConfirmCurrentOnConfirm;
-                    closeAppConfirm();
-                    callback();
-                    return;
-                }
+            if (okButton) {
+                okButton.addEventListener('click', function () {
+                    if (typeof appConfirmCurrentOnConfirm === 'function') {
+                        const callback = appConfirmCurrentOnConfirm;
+                        closeAppConfirm();
+                        callback();
+                        return;
+                    }
 
-                closeAppConfirm();
-            });
+                    closeAppConfirm();
+                });
+            }
 
             if (notifyOkButton) {
                 notifyOkButton.addEventListener('click', function () {
@@ -664,16 +666,11 @@
                     return;
                 }
 
-                if (form.dataset.confirmed === 'true') {
-                    return;
-                }
-
                 event.preventDefault();
                 const message = form.dataset.confirmMessage || 'Apakah Anda yakin ingin melanjutkan?';
                 openAppConfirm(message, function () {
-                    form.dataset.confirmed = 'true';
                     showAppLoading();
-                    form.submit();
+                    HTMLFormElement.prototype.submit.call(form);
                 });
             });
 
