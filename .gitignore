@@ -29,3 +29,9 @@ Thumbs.db
 *.rar
 /database/*.sql
 /database/*.sqlite
+/backups/
+/temp/
+*.zip
+cookies.txt
+token.txt
+delete_test.php
