@@ -201,22 +201,22 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">USD</label>
-                    <input type="number" name="exchange_rate_usd" class="form-input" id="rateUSD"
+                    <input type="text" inputmode="decimal" name="exchange_rate_usd" class="form-input" id="rateUSD"
                         value="{{ $costingData->exchange_rate_usd ?? ($activeWireRate->usd_rate ?? 15500) }}" step="0.01">
                 </div>
                 <div class="form-group">
                     <label class="form-label">JPY</label>
-                    <input type="number" name="exchange_rate_jpy" class="form-input" id="rateJPY"
+                    <input type="text" inputmode="decimal" name="exchange_rate_jpy" class="form-input" id="rateJPY"
                         value="{{ $costingData->exchange_rate_jpy ?? ($activeWireRate->jpy_rate ?? 103) }}" step="0.01">
                 </div>
                 <div class="form-group">
                     <label class="form-label">IDR</label>
-                    <input type="number" name="exchange_rate_idr" class="form-input" id="rateIDR" value="1"
+                    <input type="text" inputmode="decimal" name="exchange_rate_idr" class="form-input" id="rateIDR" value="1"
                         disabled>
                 </div>
                 <div class="form-group">
                     <label class="form-label">LME Rate</label>
-                    <input type="number" name="lme_rate" class="form-input" id="lmeRate"
+                    <input type="text" inputmode="decimal" name="lme_rate" class="form-input" id="lmeRate"
                         value="{{ $costingData->lme_rate ?? ($activeWireRate->lme_active ?? '') }}" step="0.01" placeholder="8500">
                 </div>
             </div>
@@ -788,7 +788,10 @@
                     <button type="submit" class="btn btn-primary btn-sm section-update-btn" name="update_section" value="cycle_time" data-section="cycle_time" formnovalidate>
                         Update
                     </button>
-                    <button type="button" class="btn btn-secondary" onclick="addCycleTimeRow()">
+                                        <button type="button" class="btn btn-secondary btn-sm" onclick="triggerUmhImport()">
+                        Import UMH
+                    </button>
+<button type="button" class="btn btn-secondary" onclick="addCycleTimeRow()">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="12" y1="5" x2="12" y2="19" />
                             <line x1="5" y1="12" x2="19" y2="12" />
@@ -850,34 +853,34 @@
                                         </select>
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-qty"
+                                        <input type="text" inputmode="decimal" class="form-input ct-qty"
                                             name="cycle_times[{{ $index }}][qty]"
-                                            value="{{ $cycle['qty'] ?? '' }}" step="0.0001" onchange="calculateCycleRow(this)">
+                                            value="{{ $cycle['qty'] ?? '' }}" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-hour"
+                                        <input type="text" inputmode="decimal" class="form-input ct-hour"
                                             name="cycle_times[{{ $index }}][time_hour]"
-                                            value="{{ $cycle['time_hour'] ?? '' }}" step="0.0001" onchange="calculateCycleRow(this)">
+                                            value="{{ $cycle['time_hour'] ?? '' }}" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-sec"
+                                        <input type="text" inputmode="decimal" class="form-input ct-sec"
                                             name="cycle_times[{{ $index }}][time_sec]"
-                                            value="{{ isset($cycle['time_sec']) && $cycle['time_sec'] !== '' ? round((float) $cycle['time_sec']) : '' }}" step="1" onchange="calculateCycleRow(this)">
+                                            value="{{ isset($cycle['time_sec']) && $cycle['time_sec'] !== '' ? round((float) $cycle['time_sec']) : '' }}" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-sec-per"
+                                        <input type="text" inputmode="decimal" class="form-input ct-sec-per"
                                             name="cycle_times[{{ $index }}][time_sec_per_qty]"
-                                            value="{{ isset($cycle['time_sec_per_qty']) && $cycle['time_sec_per_qty'] !== '' ? round((float) $cycle['time_sec_per_qty']) : '' }}" step="1" onchange="calculateCycleRow(this)">
+                                            value="{{ isset($cycle['time_sec_per_qty']) && $cycle['time_sec_per_qty'] !== '' ? round((float) $cycle['time_sec_per_qty']) : '' }}" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-cost-sec"
+                                        <input type="text" inputmode="decimal" class="form-input ct-cost-sec"
                                             name="cycle_times[{{ $index }}][cost_per_sec]"
-                                            value="{{ $cycle['cost_per_sec'] ?? '10.33' }}" step="0.0001" onchange="calculateCycleRow(this)">
+                                            value="{{ $cycle['cost_per_sec'] ?? '10.33' }}" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-cost-unit"
+                                        <input type="text" inputmode="decimal" class="form-input ct-cost-unit"
                                             name="cycle_times[{{ $index }}][cost_per_unit]"
-                                            value="{{ isset($cycle['cost_per_unit']) && $cycle['cost_per_unit'] !== '' ? round((float) $cycle['cost_per_unit']) : '' }}" step="1" onchange="calculateCycleRow(this)">
+                                            value="{{ isset($cycle['cost_per_unit']) && $cycle['cost_per_unit'] !== '' ? number_format((float) $cycle['cost_per_unit'], 2, ',', '.') : '' }}" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
                                         <button type="button" class="btn btn-secondary" onclick="removeCycleTimeRow(this)"
@@ -905,28 +908,28 @@
                                         </select>
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-qty"
-                                            name="cycle_times[{{ $i }}][qty]" value="" step="0.0001" onchange="calculateCycleRow(this)">
+                                        <input type="text" inputmode="decimal" class="form-input ct-qty"
+                                            name="cycle_times[{{ $i }}][qty]" value="" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-hour"
-                                            name="cycle_times[{{ $i }}][time_hour]" value="" step="0.0001" onchange="calculateCycleRow(this)">
+                                        <input type="text" inputmode="decimal" class="form-input ct-hour"
+                                            name="cycle_times[{{ $i }}][time_hour]" value="" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-sec"
-                                            name="cycle_times[{{ $i }}][time_sec]" value="" step="1" onchange="calculateCycleRow(this)">
+                                        <input type="text" inputmode="decimal" class="form-input ct-sec"
+                                            name="cycle_times[{{ $i }}][time_sec]" value="" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-sec-per"
-                                            name="cycle_times[{{ $i }}][time_sec_per_qty]" value="" step="1" onchange="calculateCycleRow(this)">
+                                        <input type="text" inputmode="decimal" class="form-input ct-sec-per"
+                                            name="cycle_times[{{ $i }}][time_sec_per_qty]" value="" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-cost-sec"
-                                            name="cycle_times[{{ $i }}][cost_per_sec]" value="10.33" step="0.0001" onchange="calculateCycleRow(this)">
+                                        <input type="text" inputmode="decimal" class="form-input ct-cost-sec"
+                                            name="cycle_times[{{ $i }}][cost_per_sec]" value="10.33" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
-                                        <input type="number" class="form-input ct-cost-unit"
-                                            name="cycle_times[{{ $i }}][cost_per_unit]" value="" step="1" onchange="calculateCycleRow(this)">
+                                        <input type="text" inputmode="decimal" class="form-input ct-cost-unit"
+                                            name="cycle_times[{{ $i }}][cost_per_unit]" value="" onchange="calculateCycleRow(this)">
                                     </td>
                                     <td>
                                         <button type="button" class="btn btn-secondary" onclick="removeCycleTimeRow(this)"
@@ -944,12 +947,13 @@
                         @endif
                     </tbody>
                     <tfoot>
-                        <tr style="background: var(--slate-700);">
-                            <td colspan="4" style="text-align: right; font-weight: 600;">Total</td>
-                            <td class="calculated" id="cycleTotalSec" style="font-weight: 700; color: var(--blue-300);">0</td>
+                        <tr style="background: #1f2937;">
+                            <td colspan="3" style="text-align: right; font-weight: 700; color: #ffffff;">Total</td>
+                            <td class="calculated" id="cycleTotalHour" style="font-weight: 800; color: #ffffff; text-align: right;">0</td>
+                            <td class="calculated" id="cycleTotalSec" style="font-weight: 800; color: #ffffff; text-align: right;">0</td>
                             <td></td>
                             <td></td>
-                            <td class="calculated" id="cycleTotalCostUnit" style="font-weight: 700; color: var(--blue-300);">0</td>
+                            <td class="calculated" id="cycleTotalCostUnit" style="font-weight: 800; color: #ffffff; text-align: right;">0</td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -974,27 +978,27 @@
             <div class="form-grid cost-grid">
                 <div class="form-group">
                     <label class="form-label">Total Material Cost (IDR)</label>
-                    <input type="number" name="material_cost" class="form-input" id="materialCost"
-                        value="{{ $costingData->material_cost ?? '' }}" required placeholder="0"
+                    <input type="text" inputmode="decimal" name="material_cost" class="form-input resume-money-input" id="materialCost"
+                        value="{{ isset($costingData->material_cost) ? number_format((float) $costingData->material_cost, 2, ',', '.') : '' }}" required placeholder="0"
                         readonly>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Process Cost (IDR)</label>
-                    <input type="number" name="labor_cost" class="form-input" id="laborCost"
-                        value="{{ $costingData->labor_cost ?? '' }}" required placeholder="0"
+                    <input type="text" inputmode="decimal" name="labor_cost" class="form-input resume-money-input" id="laborCost"
+                        value="{{ isset($costingData->labor_cost) ? number_format((float) $costingData->labor_cost, 2, ',', '.') : '' }}" required placeholder="0"
                         readonly>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Depresiasi Tooling Cost (IDR)</label>
-                    <input type="number" name="overhead_cost" class="form-input" id="overheadCost"
-                        value="{{ $costingData->overhead_cost ?? '' }}" placeholder="0"
-                        onchange="calculateTotals()">
+                    <input type="text" inputmode="decimal" name="overhead_cost" class="form-input resume-money-input" id="overheadCost"
+                        value="{{ isset($costingData->overhead_cost) ? number_format((float) $costingData->overhead_cost, 2, ',', '.') : '' }}" placeholder="0"
+                        onchange="formatResumeMoneyInput(this); calculateTotals()">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Administrasi Cost (IDR)</label>
-                    <input type="number" name="scrap_cost" class="form-input" id="scrapCost"
-                        value="{{ $costingData->scrap_cost ?? '' }}" placeholder="0"
-                        onchange="calculateTotals()">
+                    <input type="text" inputmode="decimal" name="scrap_cost" class="form-input resume-money-input" id="scrapCost"
+                        value="{{ isset($costingData->scrap_cost) ? number_format((float) $costingData->scrap_cost, 2, ',', '.') : '' }}" placeholder="0"
+                        onchange="formatResumeMoneyInput(this); calculateTotals()">
                 </div>
             </div>
 
@@ -1086,11 +1090,52 @@
             accept=".xls,.xlsx"
             onchange="if(this.files && this.files.length){ submitCogmImport(); }">
     </form>
+    <form action="{{ route('costing.import-umh', absolute: false) }}" method="POST" id="umhImportForm" enctype="multipart/form-data" style="position:absolute; width:0; height:0; overflow:hidden;">
+        @csrf
+
+        @if(isset($costingData) && $costingData)
+            <input type="hidden" name="costing_data_id" value="{{ $costingData->id }}">
+        @endif
+
+        @if(isset($trackingRevisionId) && $trackingRevisionId)
+            <input type="hidden" name="tracking_revision_id" value="{{ $trackingRevisionId }}">
+        @endif
+
+        <input type="file"
+            name="import_umh_file"
+            id="importUmhFileInput"
+            accept=".xls,.xlsx"
+            onchange="if(this.files && this.files.length){ submitUmhImport(); }">
+    </form>
+
         @include('form.partials.confirm-modals')
 @endsection
 
 @section('scripts')
     <script>
+        function triggerUmhImport() {
+            const input = document.getElementById('importUmhFileInput');
+
+            if (!input) {
+                alert('Input file Import UMH belum ditemukan.');
+                return;
+            }
+
+            input.value = '';
+            input.click();
+        }
+
+        function submitUmhImport() {
+            const form = document.getElementById('umhImportForm');
+
+            if (!form) {
+                alert('Form Import UMH belum ditemukan.');
+                return;
+            }
+
+            form.submit();
+        }
+
         function triggerMaterialImport() {
             const input = document.getElementById('importCogmFileInput');
 
@@ -1160,6 +1205,94 @@
             return 'Rp ' + number.toLocaleString('id-ID', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
+            });
+        }
+
+
+
+
+        function parseResumeMoneyNumber(value) {
+            if (value === null || value === undefined) {
+                return 0;
+            }
+
+            let raw = String(value).trim();
+
+            if (raw === '') {
+                return 0;
+            }
+
+            raw = raw.replace(/\s+/g, '');
+            raw = raw.replace(/[^0-9,.\-]/g, '');
+
+            if (raw === '' || raw === '-' || raw === '.' || raw === ',') {
+                return 0;
+            }
+
+            const hasComma = raw.includes(',');
+            const hasDot = raw.includes('.');
+
+            if (hasComma && hasDot) {
+                const lastComma = raw.lastIndexOf(',');
+                const lastDot = raw.lastIndexOf('.');
+
+                if (lastComma > lastDot) {
+                    // Format Indonesia: 12.347,13
+                    raw = raw.replace(/\./g, '');
+                    raw = raw.replace(/,/g, '.');
+                } else {
+                    // Format international: 12,347.13
+                    raw = raw.replace(/,/g, '');
+                }
+            } else if (hasComma && !hasDot) {
+                // Format Indonesia tanpa ribuan: 12347,13
+                raw = raw.replace(/,/g, '.');
+            } else if (hasDot && !hasComma) {
+                /*
+                 * Khusus Resume COGM:
+                 * Setelah submit, value bisa menjadi raw decimal: 12347.13.
+                 * Jangan dianggap ribuan, karena itu yang membuat 12347.13
+                 * berubah menjadi 1.234.713,00.
+                 */
+                raw = raw;
+            }
+
+            const numeric = Number(raw);
+
+            return Number.isFinite(numeric) ? numeric : 0;
+        }
+
+        function formatResumeMoneyValue(value) {
+            const number = Number(value) || 0;
+
+            return number.toLocaleString('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function setResumeMoneyValue(inputOrId, value) {
+            const input = typeof inputOrId === 'string' ? document.getElementById(inputOrId) : inputOrId;
+            if (!input) return;
+
+            input.value = formatResumeMoneyValue(value);
+            input.dataset.rawValue = String(Number(value) || 0);
+        }
+
+        function getResumeMoneyValue(inputOrId) {
+            const input = typeof inputOrId === 'string' ? document.getElementById(inputOrId) : inputOrId;
+            if (!input) return 0;
+
+            return parseResumeMoneyNumber(input.value || input.dataset.rawValue || 0);
+        }
+
+        function formatResumeMoneyInput(input) {
+            setResumeMoneyValue(input, getResumeMoneyValue(input));
+        }
+
+        function normalizeResumeMoneyInputsForSubmit() {
+            document.querySelectorAll('.resume-money-input').forEach(function(input) {
+                input.value = String(parseResumeMoneyNumber(input.value || input.dataset.rawValue || 0));
             });
         }
 
@@ -1595,7 +1728,7 @@
             // Update Footer Total using the rendered totals so it stays aligned with Database Costing
             const materialCostInput = document.getElementById('materialCost');
             if (materialCostInput && syncMaterialCost) {
-                materialCostInput.value = total;
+                setResumeMoneyValue(materialCostInput, total);
                 calculateTotals(false);
             }
 
@@ -2024,10 +2157,10 @@
 
         // Calculate totals for Resume COGM
         function calculateTotals(recalculateMaterialTable = true) {
-            const materialCost = parseFloat(document.getElementById('materialCost').value) || 0;
-            const laborCost = parseFloat(document.getElementById('laborCost').value) || 0;
-            const overheadCost = parseFloat(document.getElementById('overheadCost').value) || 0;
-            const scrapCost = parseFloat(document.getElementById('scrapCost').value) || 0;
+            const materialCost = getResumeMoneyValue('materialCost');
+            const laborCost = getResumeMoneyValue('laborCost');
+            const overheadCost = getResumeMoneyValue('overheadCost');
+            const scrapCost = getResumeMoneyValue('scrapCost');
             const cogmTotal = materialCost + laborCost + overheadCost + scrapCost;
 
             document.getElementById('calcTotalMaterialCost').textContent = formatRupiah(materialCost);
@@ -3139,6 +3272,104 @@
             }
         }
 
+
+
+
+        function normalizeRateInputsForSubmit() {
+            ['rateUSD', 'rateJPY', 'rateIDR', 'lmeRate'].forEach(function(id) {
+                const input = document.getElementById(id);
+                if (!input) return;
+
+                input.value = String(parseCycleNumber ? parseCycleNumber(input.value || 0) : parseInputNumber(input.value || 0));
+            });
+        }
+
+
+        function normalizeCycleTimeInputsForSubmit() {
+            document.querySelectorAll('#cycleTimeTableBody tr').forEach(function(row) {
+                ['ct-qty', 'ct-hour', 'ct-sec', 'ct-sec-per', 'ct-cost-sec', 'ct-cost-unit'].forEach(function(className) {
+                    const input = row.querySelector('.' + className);
+                    if (!input) return;
+
+                    input.value = String(parseCycleNumber(input.value || 0));
+                });
+            });
+        }
+
+        function normalizeCycleCostUnitInputsForSubmit() {
+            document.querySelectorAll('.ct-cost-unit').forEach(function(input) {
+                input.value = String(parseCycleNumber(input.value || 0));
+            });
+        }
+
+        function formatCycleCostUnitValue(value) {
+            const number = Number(value) || 0;
+
+            return number.toLocaleString('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+
+        function parseCycleNumber(value) {
+            if (value === null || value === undefined) {
+                return 0;
+            }
+
+            let raw = String(value).trim();
+
+            if (raw === '') {
+                return 0;
+            }
+
+            raw = raw.replace(/\s+/g, '');
+            raw = raw.replace(/[^0-9,.\-]/g, '');
+
+            if (raw === '' || raw === '-' || raw === '.' || raw === ',') {
+                return 0;
+            }
+
+            const hasComma = raw.includes(',');
+            const hasDot = raw.includes('.');
+
+            if (hasComma && hasDot) {
+                const lastComma = raw.lastIndexOf(',');
+                const lastDot = raw.lastIndexOf('.');
+
+                if (lastComma > lastDot) {
+                    // Format Indonesia: 1.234,56
+                    raw = raw.replace(/\./g, '');
+                    raw = raw.replace(/,/g, '.');
+                } else {
+                    // Format international: 1,234.56
+                    raw = raw.replace(/,/g, '');
+                }
+            } else if (hasComma && !hasDot) {
+                // Koma sebagai desimal
+                raw = raw.replace(/,/g, '.');
+            } else if (hasDot && !hasComma) {
+                // Untuk Cycle Time, titik adalah desimal. Jangan dihapus.
+                raw = raw;
+            }
+
+            const numeric = Number(raw);
+
+            return Number.isFinite(numeric) ? numeric : 0;
+        }
+
+        function formatCycleHourValue(value) {
+            const number = Number(value) || 0;
+
+            return Number(number.toFixed(9)).toString();
+        }
+
+        function formatCycleIntegerValue(value) {
+            const number = Number(value) || 0;
+
+            return String(Math.round(number));
+        }
+
         function calculateCycleRow(element) {
             const row = element.closest('tr');
             if (!row) return;
@@ -3150,55 +3381,97 @@
             const costSecInput = row.querySelector('.ct-cost-sec');
             const costUnitInput = row.querySelector('.ct-cost-unit');
 
-            const qty = parseFloat(qtyInput.value) || 0;
-            let hour = parseFloat(hourInput.value) || 0;
-            let sec = parseFloat(secInput.value) || 0;
-            const costPerSec = parseFloat(costSecInput.value) || 0;
+            const qty = parseCycleNumber(qtyInput?.value || 0);
+            let hour = parseCycleNumber(hourInput?.value || 0);
+            let sec = parseCycleNumber(secInput?.value || 0);
+            const costPerSec = parseCycleNumber(costSecInput?.value || 0);
 
             if (element.classList.contains('ct-hour')) {
                 sec = hour * 3600;
-                secInput.value = String(Math.round(sec));
+                if (secInput) {
+                    secInput.value = formatCycleIntegerValue(sec);
+                }
             } else if (element.classList.contains('ct-sec')) {
                 hour = sec / 3600;
-                hourInput.value = hour.toFixed(6);
+                if (hourInput) {
+                    hourInput.value = formatCycleHourValue(hour);
+                }
+            } else {
+                // Rapikan format saat kalkulasi awal / import.
+                if (hourInput && hour > 0) {
+                    hourInput.value = formatCycleHourValue(hour);
+                }
+                if (secInput && sec > 0) {
+                    secInput.value = formatCycleIntegerValue(sec);
+                }
             }
 
             const secPerQty = qty > 0 ? (sec / qty) : 0;
             const costPerUnit = sec * costPerSec;
 
-            secPerInput.value = String(Math.round(secPerQty));
+            if (secPerInput) {
+                secPerInput.value = formatCycleIntegerValue(secPerQty);
+            }
 
-            if (!costUnitInput.value || element.classList.contains('ct-hour') || element.classList.contains('ct-sec') || element.classList.contains('ct-cost-sec')) {
-                costUnitInput.value = String(Math.round(costPerUnit));
+            if (costUnitInput) {
+                const shouldRecalculateCostUnit =
+                    !costUnitInput.value ||
+                    element.classList.contains('ct-qty') ||
+                    element.classList.contains('ct-hour') ||
+                    element.classList.contains('ct-sec') ||
+                    element.classList.contains('ct-cost-sec');
+
+                if (shouldRecalculateCostUnit) {
+                    costUnitInput.value = formatCycleCostUnitValue(costPerUnit);
+                } else {
+                    costUnitInput.value = formatCycleCostUnitValue(parseCycleNumber(costUnitInput.value || 0));
+                }
             }
 
             calculateCycleTotals();
 
         }
 
+
+        function formatCycleTotalNumber(value, maxDecimals = 0) {
+            const number = Number(value) || 0;
+
+            return number.toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: maxDecimals
+            });
+        }
+
         function calculateCycleTotals() {
+            let totalHour = 0;
             let totalSec = 0;
             let totalCostUnit = 0;
             const rows = document.querySelectorAll('#cycleTimeTableBody tr');
 
             rows.forEach((row) => {
-                totalSec += parseFloat(row.querySelector('.ct-sec')?.value) || 0;
-                totalCostUnit += parseFloat(row.querySelector('.ct-cost-unit')?.value) || 0;
+                totalHour += parseCycleNumber(row.querySelector('.ct-hour')?.value || 0);
+                totalSec += parseCycleNumber(row.querySelector('.ct-sec')?.value || 0);
+                totalCostUnit += parseCycleNumber(row.querySelector('.ct-cost-unit')?.value || 0);
             });
 
+            const totalHourEl = document.getElementById('cycleTotalHour');
             const totalSecEl = document.getElementById('cycleTotalSec');
             const totalCostUnitEl = document.getElementById('cycleTotalCostUnit');
+
+            if (totalHourEl) {
+                totalHourEl.textContent = formatCycleTotalNumber(totalHour, 4);
+            }
             if (totalSecEl) {
-                totalSecEl.textContent = formatWholeNumber(totalSec);
+                totalSecEl.textContent = formatCycleTotalNumber(totalSec, 0);
             }
             if (totalCostUnitEl) {
-                totalCostUnitEl.textContent = formatWholeNumber(totalCostUnit);
+                totalCostUnitEl.textContent = formatCycleTotalNumber(totalCostUnit, 2);
             }
 
             // Sync process cost in Resume COGM from total cycle time cost
             const laborCostInput = document.getElementById('laborCost');
             if (laborCostInput) {
-                laborCostInput.value = Math.round(totalCostUnit);
+                setResumeMoneyValue(laborCostInput, totalCostUnit);
             }
 
             calculateTotals(false);
@@ -3226,12 +3499,12 @@
             newRow.innerHTML = `
                 <td>${cycleRowCounter + 1}</td>
                 <td><select class="form-select ct-process" name="cycle_times[${cycleRowCounter}][process]">${processOptionsHtml}</select></td>
-                <td><input type="number" class="form-input ct-qty" name="cycle_times[${cycleRowCounter}][qty]" value="" step="0.0001" onchange="calculateCycleRow(this)"></td>
-                <td><input type="number" class="form-input ct-hour" name="cycle_times[${cycleRowCounter}][time_hour]" value="" step="0.0001" onchange="calculateCycleRow(this)"></td>
-                <td><input type="number" class="form-input ct-sec" name="cycle_times[${cycleRowCounter}][time_sec]" value="" step="1" onchange="calculateCycleRow(this)"></td>
-                <td><input type="number" class="form-input ct-sec-per" name="cycle_times[${cycleRowCounter}][time_sec_per_qty]" value="" step="1" onchange="calculateCycleRow(this)"></td>
-                <td><input type="number" class="form-input ct-cost-sec" name="cycle_times[${cycleRowCounter}][cost_per_sec]" value="10.33" step="0.0001" onchange="calculateCycleRow(this)"></td>
-                <td><input type="number" class="form-input ct-cost-unit" name="cycle_times[${cycleRowCounter}][cost_per_unit]" value="" step="1" onchange="calculateCycleRow(this)"></td>
+                <td><input type="text" inputmode="decimal" class="form-input ct-qty" name="cycle_times[${cycleRowCounter}][qty]" value="" onchange="calculateCycleRow(this)"></td>
+                <td><input type="text" inputmode="decimal" class="form-input ct-hour" name="cycle_times[${cycleRowCounter}][time_hour]" value="" onchange="calculateCycleRow(this)"></td>
+                <td><input type="text" inputmode="decimal" class="form-input ct-sec" name="cycle_times[${cycleRowCounter}][time_sec]" value="" onchange="calculateCycleRow(this)"></td>
+                <td><input type="text" inputmode="decimal" class="form-input ct-sec-per" name="cycle_times[${cycleRowCounter}][time_sec_per_qty]" value="" onchange="calculateCycleRow(this)"></td>
+                <td><input type="text" inputmode="decimal" class="form-input ct-cost-sec" name="cycle_times[${cycleRowCounter}][cost_per_sec]" value="10.33" onchange="calculateCycleRow(this)"></td>
+                <td><input type="text" inputmode="decimal" class="form-input ct-cost-unit" name="cycle_times[${cycleRowCounter}][cost_per_unit]" value="" onchange="calculateCycleRow(this)"></td>
                 <td><button type="button" class="btn btn-secondary" onclick="removeCycleTimeRow(this)" style="padding: 0.5rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>
             `;
 
@@ -3638,6 +3911,17 @@
                 costingForm.addEventListener('submit', function (event) {
                     normalizeMaterialTextInputs();
                     syncForecastHidden();
+
+                    if (typeof normalizeResumeMoneyInputsForSubmit === 'function') {
+                        normalizeResumeMoneyInputsForSubmit();
+                    }
+                    if (typeof normalizeRateInputsForSubmit === 'function') {
+                        normalizeRateInputsForSubmit();
+                    }
+                    if (typeof normalizeCycleTimeInputsForSubmit === 'function') {
+                        normalizeCycleTimeInputsForSubmit();
+                    }
+
                     refreshUnpricedRecap();
 
                     const submitter = event.submitter;
@@ -3826,6 +4110,74 @@
             }
             return 'recalculateAllRows is not available';
         };
+
+
+
+        function normalizeAllCycleTimeDisplayValues() {
+            document.querySelectorAll('#cycleTimeTableBody tr').forEach(function(row) {
+                const hourInput = row.querySelector('.ct-hour');
+                const secInput = row.querySelector('.ct-sec');
+                const secPerInput = row.querySelector('.ct-sec-per');
+                const costUnitInput = row.querySelector('.ct-cost-unit');
+
+                if (hourInput && hourInput.value !== '') {
+                    hourInput.value = formatCycleHourValue(parseCycleNumber(hourInput.value));
+                }
+
+                if (secInput && secInput.value !== '') {
+                    secInput.value = formatCycleIntegerValue(parseCycleNumber(secInput.value));
+                }
+
+                if (secPerInput && secPerInput.value !== '') {
+                    secPerInput.value = formatCycleIntegerValue(parseCycleNumber(secPerInput.value));
+                }
+
+                if (costUnitInput && costUnitInput.value !== '') {
+                    costUnitInput.value = formatCycleCostUnitValue(parseCycleNumber(costUnitInput.value));
+                }
+            });
+        }
+
+        function formatAllCycleCostUnitInputs() {
+            document.querySelectorAll('.ct-cost-unit').forEach(function(input) {
+                input.value = formatCycleCostUnitValue(parseCycleNumber(input.value || 0));
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            normalizeAllCycleTimeDisplayValues();
+            formatAllCycleCostUnitInputs();
+            calculateCycleTotals();
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('form').forEach(function(formElement) {
+                formElement.addEventListener('submit', normalizeRateInputsForSubmit);
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('form').forEach(function(formElement) {
+                formElement.addEventListener('submit', normalizeCycleTimeInputsForSubmit);
+            });
+        });
+
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('form').forEach(function(formElement) {
+                formElement.addEventListener('submit', function() {
+                    if (typeof normalizeResumeMoneyInputsForSubmit === 'function') {
+                        normalizeResumeMoneyInputsForSubmit();
+                    }
+                    if (typeof normalizeRateInputsForSubmit === 'function') {
+                        normalizeRateInputsForSubmit();
+                    }
+                    if (typeof normalizeCycleTimeInputsForSubmit === 'function') {
+                        normalizeCycleTimeInputsForSubmit();
+                    }
+                });
+            });
+        });
 
     </script>
 @endsection

@@ -16,7 +16,11 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // All app routes require authentication
 Route::middleware('auth')->group(function () {
 
-    if (app()->environment(['local', 'development'])) {
+    Route::get('/profile', function () {
+        return view('profile.show');
+    })->name('profile.show');
+
+        if (app()->environment(['local', 'development'])) {
         // Test endpoint hanya tersedia di environment development.
         Route::get('/test', function () {
             return response()->json([
@@ -150,6 +154,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/costing/import-partlist', [CostingController::class, 'importPartlist'])->name('costing.import-partlist');
         Route::get('/costing/import-cogm', fn () => redirect()->route('form'))->name('costing.import-cogm.get');
         Route::post('/costing/import-cogm', [CostingController::class, 'importCogm'])->name('costing.import-cogm');
+        Route::get('/costing/import-umh', fn () => redirect()->route('form'))->name('costing.import-umh.get');
+        Route::post('/costing/import-umh', [CostingController::class, 'importUmh'])->name('costing.import-umh');
         Route::patch('/costing/status-project/{revisionId}', [CostingController::class, 'updateStatusProject'])->name('costing.status-project.update');
 
         // Document Receipts

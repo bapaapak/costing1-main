@@ -139,6 +139,21 @@ class DatabaseCostingService
 
     public function delete(CostingData $costing): void
     {
-        $costing->delete();
+        $revision = $costing->trackingRevision;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($costing, $revision) {
+            if ($revision) {
+                $revision->unpricedParts()->delete();
+            }
+
+            $costing->delete();
+
+            if ($revision) {
+                $revision->update([
+                    'status' => \App\Models\DocumentRevision::STATUS_PENDING_FORM_INPUT,
+                    'cogm_generated_at' => null,
+                ]);
+            }
+        });
     }
 }

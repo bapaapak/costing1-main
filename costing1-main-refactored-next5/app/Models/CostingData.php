@@ -68,6 +68,11 @@ class CostingData extends Model
         return $this->belongsTo(DocumentRevision::class, 'tracking_revision_id');
     }
 
+    public function unpricedParts()
+    {
+        return $this->hasMany(UnpricedPart::class);
+    }
+
     public function getTotalCostAttribute()
     {
         return $this->material_cost + $this->labor_cost + $this->overhead_cost + $this->scrap_cost;
