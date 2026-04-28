@@ -199,6 +199,54 @@
             color: #15803d;
         }
 
+        .status-detail-list {
+            display: grid;
+            gap: 0.38rem;
+            margin-top: 0.58rem;
+            text-align: left;
+        }
+
+        .status-detail-item {
+            display: grid;
+            grid-template-columns: 8px minmax(0, 1fr);
+            align-items: start;
+            gap: 0.42rem;
+            color: #334155;
+            font-size: 0.72rem;
+            font-weight: 600;
+            line-height: 1.35;
+            letter-spacing: 0.01em;
+        }
+
+        .status-detail-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            margin-top: 0.31rem;
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16);
+        }
+
+        .status-detail-dot.danger {
+            background: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14);
+        }
+
+        .status-detail-dot.warning {
+            background: #f97316;
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.14);
+        }
+
+        .status-detail-dot.info {
+            background: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+        }
+
+        .status-cell {
+            display: inline-grid;
+            justify-items: start;
+            max-width: 100%;
+        }
+
         .action-group {
             display: grid;
             gap: 0.36rem;
@@ -619,6 +667,102 @@
                                     ->sortByDesc('submitted_at')
                                     ->first();
                                 $displayPicMarketing = $latestRevision?->pic_marketing ?: ($latestMarketingSubmission?->pic_marketing ?? null);
+
+                                /*
+                                 * Display status di halaman Project dibuat dari kondisi aktual costing:
+                                 * - Pending Form Costing: belum ada data material atau cycle time
+                                 * - Sudah Costing: sudah ada material + cycle time, tapi masih ada catatan
+                                 * - Submitted: semua catatan costing sudah bersih
+                                 */
+                                $latestCostingData = null;
+                                $materialRows = collect();
+                                $cycleTimes = [];
+                                $statusNotes = [];
+
+                                if ($latestRevision) {
+                                    $latestCostingData = \App\Models\CostingData::query()
+                                        ->where('tracking_revision_id', $latestRevision->id)
+                                        ->latest('id')
+                                        ->first();
+                                }
+
+                                if ($latestCostingData) {
+                                    $materialRows = \App\Models\MaterialBreakdown::query()
+                                        ->where('costing_data_id', $latestCostingData->id)
+                                        ->get(['amount1', 'unit_price_basis', 'cn_type']);
+
+                                    $rawCycleTimes = $latestCostingData->cycle_times ?? [];
+                                    if (is_string($rawCycleTimes)) {
+                                        $decodedCycleTimes = json_decode($rawCycleTimes, true);
+                                        $cycleTimes = is_array($decodedCycleTimes) ? $decodedCycleTimes : [];
+                                    } elseif (is_array($rawCycleTimes)) {
+                                        $cycleTimes = $rawCycleTimes;
+                                    } elseif ($rawCycleTimes instanceof \Illuminate\Support\Collection) {
+                                        $cycleTimes = $rawCycleTimes->toArray();
+                                    }
+
+                                    $cycleTimes = collect($cycleTimes)
+                                        ->filter(function ($row) {
+                                            if (!is_array($row)) {
+                                                return false;
+                                            }
+
+                                            return collect($row)->contains(function ($value) {
+                                                return trim((string) $value) !== '' && trim((string) $value) !== '0';
+                                            });
+                                        })
+                                        ->values()
+                                        ->all();
+                                }
+
+                                $hasMaterialData = $materialRows->isNotEmpty();
+                                $hasCycleTimeData = count($cycleTimes) > 0;
+
+                                $hasMissingMaterialPrice = $hasMaterialData && $materialRows->contains(function ($row) {
+                                    return (float) ($row->amount1 ?? 0) <= 0;
+                                });
+
+                                $hasEstimateMaterialPrice = $hasMaterialData && $materialRows->contains(function ($row) {
+                                    return strtoupper(trim((string) ($row->cn_type ?? ''))) === 'E';
+                                });
+
+                                $processCostIsEmpty = $latestCostingData
+                                    ? (float) ($latestCostingData->labor_cost ?? 0) <= 0
+                                    : true;
+
+                                if (!$hasMaterialData || !$hasCycleTimeData) {
+                                    $displayStatusLabel = 'PENDING FORM COSTING';
+                                    $displayStatusClass = 'status-pending';
+                                } else {
+                                    if ($hasMissingMaterialPrice) {
+                                        $statusNotes[] = [
+                                            'type' => 'danger',
+                                            'label' => 'Material belum ada harga',
+                                        ];
+                                    }
+
+                                    if ($hasEstimateMaterialPrice) {
+                                        $statusNotes[] = [
+                                            'type' => 'warning',
+                                            'label' => 'Ada harga estimate',
+                                        ];
+                                    }
+
+                                    if ($processCostIsEmpty) {
+                                        $statusNotes[] = [
+                                            'type' => 'info',
+                                            'label' => 'Process cost belum ada',
+                                        ];
+                                    }
+
+                                    if (!empty($statusNotes)) {
+                                        $displayStatusLabel = 'SUDAH COSTING';
+                                        $displayStatusClass = 'status-generated';
+                                    } else {
+                                        $displayStatusLabel = 'SUBMITTED';
+                                        $displayStatusClass = 'status-submitted';
+                                    }
+                                }
                             @endphp
                             @if(!$latestRevision)
                                 @continue
@@ -653,10 +797,22 @@
                                 <td>{{ $latestRevision->pic_engineering }}</td>
                                 <td>{{ $displayPicMarketing ?: '-' }}</td>
                                 <td>
-                                    <span
-                                        class="status-badge {{ $latestRevision->status === \App\Models\DocumentRevision::STATUS_PENDING_FORM_INPUT ? 'status-pending' : ($latestRevision->status === \App\Models\DocumentRevision::STATUS_SUDAH_COSTING ? 'status-generated' : ($latestRevision->status === \App\Models\DocumentRevision::STATUS_PENDING_PRICING ? 'status-warning' : ($latestRevision->status === \App\Models\DocumentRevision::STATUS_COGM_GENERATED ? 'status-generated' : 'status-submitted'))) }}">
-                                        {{ $latestRevision->status_label }}
-                                    </span>
+                                    <div class="status-cell">
+                                        <span class="status-badge {{ $displayStatusClass }}">
+                                            {{ $displayStatusLabel }}
+                                        </span>
+
+                                        @if($displayStatusLabel === 'SUDAH COSTING' && !empty($statusNotes))
+                                            <div class="status-detail-list">
+                                                @foreach($statusNotes as $statusNote)
+                                                    <div class="status-detail-item">
+                                                        <span class="status-detail-dot {{ $statusNote['type'] }}"></span>
+                                                        <span>{{ $statusNote['label'] }}</span>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td>{{ optional($latestRevision->updated_at)?->timezone('Asia/Jakarta')->format('d/m/Y H:i') ?: '-' }}</td>
                                 <td>

@@ -150,6 +150,11 @@ Route::middleware('auth')->group(function () {
         // Form Costing
         Route::get('/form', [CostingController::class, 'form'])->name('form');
         Route::post('/costing/store', [CostingController::class, 'store'])->name('costing.store');
+        Route::post('/costing/material-quick-update', [CostingController::class, 'quickUpdateMaterial'])->name('costing.material-quick-update');
+        Route::get('/costing/store', function () {
+            return redirect(route('form', [], false))
+                ->with('warning', 'Halaman simpan tidak bisa dibuka langsung. Silakan simpan data dari Form Costing.');
+        })->name('costing.store.get');
         Route::get('/costing/import-partlist', fn () => redirect()->route('form'))->name('costing.import-partlist.get');
         Route::post('/costing/import-partlist', [CostingController::class, 'importPartlist'])->name('costing.import-partlist');
         Route::get('/costing/import-cogm', fn () => redirect()->route('form'))->name('costing.import-cogm.get');

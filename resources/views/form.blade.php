@@ -34,6 +34,8 @@
             value="{{ isset($trackingRevision) && $trackingRevision ? route('tracking-documents.delete-unpriced-part', ['revision' => $trackingRevision->id], absolute: false) : '' }}">
         <input type="hidden" id="bulkDeleteUnpricedUrl"
             value="{{ isset($trackingRevision) && $trackingRevision ? route('tracking-documents.bulk-delete-unpriced-parts', ['revision' => $trackingRevision->id], absolute: false) : '' }}">
+        <input type="hidden" id="quickMaterialUpdateUrl"
+            value="{{ route('costing.material-quick-update', absolute: false) }}">
 
         <!-- Section A: Filter & Header -->
         <div class="card form-section">
@@ -345,6 +347,7 @@
                                 <select class="form-select cn-type" name="materials[{{ $index }}][cn_type]" onchange="calculateRow(this)">
                                     <option value="N" {{ $rowCn == 'N' ? 'selected' : '' }}>N</option>
                                     <option value="C" {{ $rowCn == 'C' ? 'selected' : '' }}>C</option>
+                                    <option value="E" {{ $rowCn == 'E' ? 'selected' : '' }}>E</option>
                                 </select>
                                 </td>
                                 <td><input type="text" class="form-input supplier" name="materials[{{ $index }}][supplier]"
@@ -423,6 +426,7 @@
                                         <select class="form-select cn-type" name="materials[{{ $index }}][cn_type]" onchange="calculateRow(this)">
                                             <option value="N" {{ $breakdown->cn_type == 'N' ? 'selected' : '' }}>N</option>
                                             <option value="C" {{ $breakdown->cn_type == 'C' ? 'selected' : '' }}>C</option>
+                                            <option value="E" {{ $breakdown->cn_type == 'E' ? 'selected' : '' }}>E</option>
                                         </select>
                                     </td>
                                     <td><input type="text" class="form-input supplier" name="materials[{{ $index }}][supplier]"
@@ -487,6 +491,7 @@
                                         <select class="form-select cn-type" name="materials[{{ $i }}][cn_type]" onchange="calculateRow(this)">
                                             <option value="N">N</option>
                                             <option value="C">C</option>
+                                            <option value="E">E</option>
                                         </select>
                                     </td>
                                     <td><input type="text" class="form-input supplier" name="materials[{{ $i }}][supplier]" value=""
@@ -1084,6 +1089,20 @@
             <input type="hidden" name="tracking_revision_id" value="{{ $trackingRevisionId }}">
         @endif
 
+        <input type="hidden" name="wire_rate_id" id="cogmImportWireRateId" value="{{ $selectedWireRateId }}">
+        <input type="hidden" name="business_category_id" id="cogmImportBusinessCategoryId" value="{{ $costingData->product->line ?? ($trackingProjectPrefill['business_category_id'] ?? '') }}">
+        <input type="hidden" name="customer_id" id="cogmImportCustomerId" value="{{ $costingData->customer_id ?? ($trackingProjectPrefill['customer_id'] ?? '') }}">
+        <input type="hidden" name="period" id="cogmImportPeriod" value="{{ $costingData->period ?? '' }}">
+        <input type="hidden" name="line" id="cogmImportLine" value="{{ $costingData->line ?? '' }}">
+        <input type="hidden" name="model" id="cogmImportModel" value="{{ $costingData->model ?? ($trackingProjectPrefill['model'] ?? '') }}">
+        <input type="hidden" name="assy_no" id="cogmImportAssyNo" value="{{ $costingData->assy_no ?? ($trackingProjectPrefill['assy_no'] ?? '') }}">
+        <input type="hidden" name="assy_name" id="cogmImportAssyName" value="{{ $costingData->assy_name ?? ($trackingProjectPrefill['assy_name'] ?? '') }}">
+        <input type="hidden" name="exchange_rate_usd" id="cogmImportRateUsd" value="{{ $costingData->exchange_rate_usd ?? ($activeWireRate->usd_rate ?? 15500) }}">
+        <input type="hidden" name="exchange_rate_jpy" id="cogmImportRateJpy" value="{{ $costingData->exchange_rate_jpy ?? ($activeWireRate->jpy_rate ?? 103) }}">
+        <input type="hidden" name="lme_rate" id="cogmImportLmeRate" value="{{ $costingData->lme_rate ?? ($activeWireRate->lme_active ?? '') }}">
+        <input type="hidden" name="forecast" id="cogmImportForecast" value="{{ $forecastValue ?? 0 }}">
+        <input type="hidden" name="project_period" id="cogmImportProjectPeriod" value="{{ $costingData->project_period ?? 2 }}">
+
         <input type="file"
             name="import_cogm_file"
             id="importCogmFileInput"
@@ -1156,9 +1175,61 @@
                 return;
             }
 
+            syncForecastHidden();
+
+            const forecastHidden = document.getElementById('forecast');
+            const projectPeriod = document.getElementById('projectPeriod');
+            const wireRateSelector = document.getElementById('wireRateSelector');
+
+            const cogmForecast = document.getElementById('cogmImportForecast');
+            const cogmProjectPeriod = document.getElementById('cogmImportProjectPeriod');
+            const cogmWireRateId = document.getElementById('cogmImportWireRateId');
+
+            if (cogmForecast && forecastHidden) {
+                cogmForecast.value = forecastHidden.value || '0';
+            }
+
+            if (cogmProjectPeriod && projectPeriod) {
+                cogmProjectPeriod.value = projectPeriod.value || '0';
+            }
+
+            if (cogmWireRateId && wireRateSelector) {
+                cogmWireRateId.value = wireRateSelector.value || '';
+            }
+
+            const syncFields = {
+                'cogmImportBusinessCategoryId': 'select[name="business_category_id"]',
+                'cogmImportCustomerId': 'select[name="customer_id"]',
+                'cogmImportPeriod': '#periodInput',
+                'cogmImportLine': 'select[name="line"]',
+                'cogmImportModel': 'input[name="model"]',
+                'cogmImportAssyNo': 'input[name="assy_no"]',
+                'cogmImportAssyName': 'input[name="assy_name"]',
+                'cogmImportRateUsd': '#rateUSD',
+                'cogmImportRateJpy': '#rateJPY',
+                'cogmImportLmeRate': '#lmeRate',
+            };
+
+            for (const [hiddenId, mainSelector] of Object.entries(syncFields)) {
+                const hidden = document.getElementById(hiddenId);
+                const main = document.querySelector('#costingForm ' + mainSelector);
+
+                if (hidden && main) {
+                    hidden.value = main.value || '';
+                }
+            }
+
+            showAppLoading('Mengimport COGM...');
+
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+                return;
+            }
+
             form.submit();
         }
 
+        window.COSTING_FORM_FAST_UPDATE_VERSION = 'v5-iframe-no-early-remove';
         // Global variables
         let rowCounter = {{ (!$costingData && is_array(old('materials')) && count(old('materials')) > 0) ? count(old('materials')) : ($materialBreakdowns->count() > 0 ? $materialBreakdowns->count() : 5) }};
         let cycleRowCounter = {{ $initialCycleCount }};
@@ -1173,6 +1244,15 @@
         let materialFilterPopup = null;
         let activeMaterialFilterColumn = null;
         let materialSortState = { column: null, direction: null };
+        const materialValidationNoticeAcknowledged = {
+            missing_price: false,
+            estimate_price: false,
+        };
+        let materialValidationNoticeOpen = false;
+        let bypassMaterialValidationNoticeOnce = false;
+        let materialInitialRowsSnapshot = [];
+        let materialInitialRowsSnapshotJson = '[]';
+        let materialStructureDirty = false;
 
         // Materials data for dynamic selection (slim: only fields needed for JS lookup)
         const rawMaterials = @json($materialsSlim);
@@ -1321,6 +1401,311 @@
             return integerPart + decimalPart;
         }
 
+
+        function initMaterialValidationHighlightStyles() {
+            if (document.getElementById('materialValidationHighlightStyles')) {
+                return;
+            }
+
+            const style = document.createElement('style');
+            style.id = 'materialValidationHighlightStyles';
+            style.textContent = `
+                #materialTableBody tr.material-row-missing-price > td {
+                    background: #fee2e2 !important;
+                }
+
+                #materialTableBody tr.material-row-missing-price {
+                    outline: 2px solid #dc2626;
+                    outline-offset: -2px;
+                }
+
+                #materialTableBody tr.material-row-estimate-price > td {
+                    background: #fef3c7 !important;
+                }
+
+                #materialTableBody tr.material-row-estimate-price {
+                    outline: 2px solid #f59e0b;
+                    outline-offset: -2px;
+                }
+
+                #materialTableBody tr.material-row-missing-price .amount1 {
+                    border-color: #dc2626 !important;
+                    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18) !important;
+                }
+
+                #materialTableBody tr.material-row-estimate-price .cn-type {
+                    border-color: #f59e0b !important;
+                    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22) !important;
+                }
+
+                .material-validation-modal-backdrop {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 99999;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 1.5rem;
+                    background: rgba(15, 23, 42, 0.38);
+                    backdrop-filter: blur(3px);
+                }
+
+                .material-validation-modal-card {
+                    width: min(420px, 100%);
+                    border-radius: 18px;
+                    background: #ffffff;
+                    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+                    border: 1px solid rgba(148, 163, 184, 0.22);
+                    overflow: hidden;
+                    animation: materialValidationModalIn 160ms ease-out;
+                }
+
+                .material-validation-modal-body {
+                    padding: 1.5rem 1.5rem 1.25rem;
+                }
+
+                .material-validation-modal-icon {
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 999px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-bottom: 0.9rem;
+                }
+
+                .material-validation-modal-icon.error {
+                    background: #fee2e2;
+                    color: #dc2626;
+                }
+
+                .material-validation-modal-icon.warning {
+                    background: #fef3c7;
+                    color: #d97706;
+                }
+
+                .material-validation-modal-title {
+                    font-size: 1rem;
+                    font-weight: 800;
+                    color: #0f172a;
+                    margin-bottom: 0.35rem;
+                }
+
+                .material-validation-modal-message {
+                    color: #475569;
+                    line-height: 1.5;
+                    font-size: 0.92rem;
+                }
+
+                .material-validation-modal-actions {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 0.75rem;
+                    padding: 0 1.5rem 1.5rem;
+                }
+
+                .material-validation-modal-ok {
+                    border: 0;
+                    border-radius: 10px;
+                    padding: 0.65rem 1.1rem;
+                    font-weight: 700;
+                    color: #ffffff;
+                    background: #2563eb;
+                    cursor: pointer;
+                    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.26);
+                }
+
+                .material-validation-modal-ok:hover {
+                    background: #1d4ed8;
+                }
+
+                @keyframes materialValidationModalIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(8px) scale(0.98);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
+                }
+            `;
+
+            document.head.appendChild(style);
+        }
+
+        function clearMaterialValidationHighlights() {
+            document.querySelectorAll('#materialTableBody tr').forEach((row) => {
+                row.classList.remove('material-row-missing-price', 'material-row-estimate-price');
+            });
+        }
+
+        function showMaterialValidationModal(message, type, onOk) {
+            initMaterialValidationHighlightStyles();
+
+            if (materialValidationNoticeOpen) {
+                return;
+            }
+
+            materialValidationNoticeOpen = true;
+
+            const backdrop = document.createElement('div');
+            backdrop.className = 'material-validation-modal-backdrop';
+            backdrop.setAttribute('role', 'dialog');
+            backdrop.setAttribute('aria-modal', 'true');
+
+            const iconSvg = type === 'error'
+                ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="7" x2="12" y2="13"></line><circle cx="12" cy="17" r="1"></circle></svg>'
+                : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+
+            const detail = type === 'error'
+                ? 'Baris yang belum memiliki harga sudah ditandai warna merah. Anda tetap bisa lanjut setelah menekan OK.'
+                : 'Baris dengan harga estimate sudah ditandai warna kuning. Anda tetap bisa lanjut setelah menekan OK.';
+
+            backdrop.innerHTML = `
+                <div class="material-validation-modal-card">
+                    <div class="material-validation-modal-body">
+                        <div class="material-validation-modal-icon ${type}">${iconSvg}</div>
+                        <div class="material-validation-modal-title">Perhatian Material</div>
+                        <div class="material-validation-modal-message">
+                            <strong>${message}</strong><br>
+                            ${detail}
+                        </div>
+                    </div>
+                    <div class="material-validation-modal-actions">
+                        <button type="button" class="material-validation-modal-ok">OK, lanjut</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(backdrop);
+
+            const okButton = backdrop.querySelector('.material-validation-modal-ok');
+            const close = () => {
+                materialValidationNoticeOpen = false;
+                backdrop.remove();
+
+                if (typeof onOk === 'function') {
+                    onOk();
+                }
+            };
+
+            okButton?.addEventListener('click', close);
+            setTimeout(() => okButton?.focus(), 30);
+        }
+
+        function isMaterialRowActive(row) {
+            if (!row) {
+                return false;
+            }
+
+            const partNo = String(row.querySelector('.part-no')?.value || '').trim();
+            const idCode = String(row.querySelector('.id-code')?.value || '').trim();
+            const partName = String(row.querySelector('.part-name')?.value || '').trim();
+            const supplier = String(row.querySelector('.supplier')?.value || '').trim();
+            const qtyReq = parseInputNumber(row.querySelector('.qty-req')?.value || 0);
+            const amount1 = parseInputNumber(row.querySelector('.amount1')?.value || 0);
+
+            return partNo !== ''
+                || idCode !== ''
+                || partName !== ''
+                || supplier !== ''
+                || qtyReq > 0
+                || amount1 > 0;
+        }
+
+        function getMaterialSectionValidationResult() {
+            initMaterialValidationHighlightStyles();
+            clearMaterialValidationHighlights();
+
+            const rows = Array.from(document.querySelectorAll('#materialTableBody tr'));
+            const activeRows = rows.filter((row) => isMaterialRowActive(row));
+
+            if (activeRows.length === 0) {
+                return {
+                    ok: true,
+                    code: '',
+                    message: '',
+                    type: 'success',
+                    missingRows: [],
+                    estimateRows: [],
+                };
+            }
+
+            const missingRows = [];
+            const estimateRows = [];
+
+            activeRows.forEach((row) => {
+                const amountInput = row.querySelector('.amount1');
+                const rawAmount = String(amountInput?.value || '').trim();
+                const cnValue = String(row.querySelector('.cn-type')?.value || '').trim().toUpperCase();
+
+                if (rawAmount === '' || parseInputNumber(rawAmount) <= 0) {
+                    missingRows.push(row);
+                    row.classList.add('material-row-missing-price');
+                }
+
+                if (cnValue === 'E') {
+                    estimateRows.push(row);
+                    row.classList.add('material-row-estimate-price');
+                }
+            });
+
+            if (missingRows.length > 0) {
+                return {
+                    ok: false,
+                    code: 'missing_price',
+                    message: 'Ada harga yang belum',
+                    type: 'error',
+                    missingRows,
+                    estimateRows,
+                };
+            }
+
+            if (estimateRows.length > 0) {
+                return {
+                    ok: false,
+                    code: 'estimate_price',
+                    message: 'Ada harga yang masih estimate',
+                    type: 'warning',
+                    missingRows,
+                    estimateRows,
+                };
+            }
+
+            return {
+                ok: true,
+                code: '',
+                message: '',
+                type: 'success',
+                missingRows: [],
+                estimateRows: [],
+            };
+        }
+
+        function refreshMaterialValidationHighlights() {
+            getMaterialSectionValidationResult();
+        }
+
+        function shouldShowMaterialValidationNotice(result) {
+            if (!result || result.ok || !result.code) {
+                return false;
+            }
+
+            if (bypassMaterialValidationNoticeOnce) {
+                bypassMaterialValidationNoticeOnce = false;
+                return false;
+            }
+
+            return materialValidationNoticeAcknowledged[result.code] !== true;
+        }
+
+        function acknowledgeMaterialValidationNotice(result) {
+            if (result && result.code) {
+                materialValidationNoticeAcknowledged[result.code] = true;
+            }
+        }
+
         function showUnsavedMaterialConfirmModal(eventToCancel, allowTargetAction) {
             isConfirmingUnsavedMaterial = true;
             const modal = document.getElementById('unsavedMaterialConfirmModal');
@@ -1377,26 +1762,48 @@
 
         // Global Interceptor to prevent leaving material section
         document.addEventListener('mousedown', function(event) {
-            if (!isMaterialDirty) return;
-            if (isConfirmingUnsavedMaterial) return;
+            if (isConfirmingUnsavedMaterial || materialValidationNoticeOpen) return;
 
             const materialSection = document.getElementById('materialFormSection');
-            // If interaction is inside the Material section itself, allow it
+
+            // If interaction is inside the Material section itself, allow it.
             if (materialSection && materialSection.contains(event.target)) {
                 return;
             }
 
-            // Exceptions (like clicking the modal, document body, non-interactive elements)
-            if (event.target.closest('.confirm-modal')) {
-                return; // Let modal work
+            // Exceptions.
+            if (event.target.closest('.confirm-modal') || event.target.closest('.material-validation-modal-backdrop')) {
+                return;
             }
 
             const unpricedBanner = event.target.closest('.unpriced-top-banner');
             if (unpricedBanner) return;
 
-            // Only block interactive things indicating they are moving away (inputs, buttons outside of material)
-            const isInteractive = event.target.closest('input, select, textarea, button, a, .section-toggle');
-            if (isInteractive) {
+            // Only handle interactive actions that move user away from Material.
+            const targetAction = event.target.closest('input, select, textarea, button, a, .section-toggle');
+            if (!targetAction) {
+                return;
+            }
+
+            const validationResult = getMaterialSectionValidationResult();
+
+            if (shouldShowMaterialValidationNotice(validationResult)) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                showMaterialValidationModal(validationResult.message, validationResult.type, function () {
+                    acknowledgeMaterialValidationNotice(validationResult);
+                    bypassMaterialValidationNoticeOnce = true;
+
+                    if (targetAction && typeof targetAction.click === 'function') {
+                        setTimeout(() => targetAction.click(), 50);
+                    }
+                });
+
+                return;
+            }
+
+            if (isMaterialDirty) {
                 event.preventDefault();
                 event.stopPropagation();
                 showUnsavedMaterialConfirmModal(event, true);
@@ -1419,6 +1826,18 @@
             }
         });
         
+        document.addEventListener('input', function(event) {
+            if (event.target && event.target.closest && event.target.closest('#materialTableBody')) {
+                refreshMaterialValidationHighlights();
+            }
+        });
+
+        document.addEventListener('change', function(event) {
+            if (event.target && event.target.closest && event.target.closest('#materialTableBody')) {
+                refreshMaterialValidationHighlights();
+            }
+        });
+
         document.addEventListener('blur', function(e) {
             if (e.target && e.target.classList.contains('number-format')) {
                 // Formatting on blur cleanly
@@ -2208,7 +2627,7 @@
                                     <td><input type="text" class="form-input unit-price-basis" name="materials[${rowCounter}][unit_price_basis]" value="" placeholder="Unit Price" onchange="calculateRow(this)"></td>
                                     <td><select class="form-select currency" name="materials[${rowCounter}][currency]" onchange="calculateRow(this)"><option value="IDR">IDR</option><option value="USD">USD</option><option value="JPY">JPY</option></select></td>
                                     <td><input type="text" class="form-input w-28 qty-moq number-format" name="materials[${rowCounter}][qty_moq]" value="0" step="0.0001" onchange="calculateRow(this)"></td>
-                                    <td><select class="form-select cn-type" name="materials[${rowCounter}][cn_type]" onchange="calculateRow(this)"><option value="N">N</option><option value="C">C</option></select></td>
+                                    <td><select class="form-select cn-type" name="materials[${rowCounter}][cn_type]" onchange="calculateRow(this)"><option value="N">N</option><option value="C">C</option><option value="E">E</option></select></td>
                                     <td><input type="text" class="form-input supplier" name="materials[${rowCounter}][supplier]" value="" placeholder="Supplier"></td>
                                     <td><input type="text" class="form-input import-tax number-format" name="materials[${rowCounter}][import_tax]" value="0" onchange="calculateRow(this)"></td>
                                     <td class="calculated multiply-factor">1</td>
@@ -2220,6 +2639,7 @@
                                 `;
 
             tbody.appendChild(newRow);
+            materialStructureDirty = true;
             rowCounter++;
             renumberRows();
 
@@ -2238,6 +2658,7 @@
             const beforeSnapshot = getMaterialStateSnapshot();
             const row = button.closest('tr');
             row.remove();
+            materialStructureDirty = true;
             renumberRows();
             calculateTableTotal();
             refreshUnpricedRecap();
@@ -2298,6 +2719,7 @@
                 function () {
                     const beforeSnapshot = getMaterialStateSnapshot();
                     selectedRows.forEach((row) => row.remove());
+                    materialStructureDirty = true;
 
                     renumberRows();
                     calculateTableTotal();
@@ -2317,6 +2739,230 @@
                     submitMaterialSectionAjax();
                 }
             );
+        }
+
+        function collectMaterialRowsForPayload(form = document.getElementById('costingForm')) {
+            const rows = [];
+            const materialRows = form ? form.querySelectorAll('#materialTableBody tr') : [];
+
+            materialRows.forEach((row, visualIndex) => {
+                const material = {
+                    __row_index: visualIndex,
+                    __row_no: visualIndex + 1,
+                    __dirty: row.dataset.materialDirty === '1',
+                };
+
+                row.querySelectorAll('input, select, textarea').forEach((control) => {
+                    const match = (control.name || '').match(/^materials\[(\d+)\]\[(.+)\]$/);
+                    if (!match) return;
+                    material[match[2]] = control.value;
+                });
+
+                if (Object.keys(material).length > 3) {
+                    rows.push(material);
+                }
+            });
+
+            return rows;
+        }
+
+        function normalizeMaterialRowsForCompare(rows) {
+            return rows.map((row) => {
+                const clone = { ...row };
+                delete clone.__dirty;
+                return clone;
+            });
+        }
+
+        function refreshMaterialInitialSnapshot() {
+            /*
+             * Jangan simpan snapshot seluruh row. Untuk ribuan baris, JSON.stringify
+             * seluruh tabel adalah bottleneck. Cukup reset flag dirty per row.
+             */
+            materialInitialRowsSnapshot = [];
+            materialInitialRowsSnapshotJson = '[]';
+            materialStructureDirty = false;
+
+            document.querySelectorAll('#materialTableBody tr').forEach((row) => {
+                row.dataset.materialDirty = '0';
+            });
+        }
+
+        function getChangedMaterialRowsForQuickUpdate() {
+            /*
+             * Mode super cepat: hanya ambil baris yang benar-benar disentuh user.
+             * Jangan bandingkan JSON seluruh tabel karena data COGM bisa sangat banyak
+             * dan proses stringify semua row membuat tombol Update terasa lama.
+             */
+            return collectMaterialRowsForPayload().filter((row) => {
+                return row.__dirty === true || row.__dirty === '1';
+            });
+        }
+
+        function submitMaterialQuickUpdateAjax(changedRows, onSuccess) {
+            /*
+             * V5: quick update Material via hidden iframe.
+             * Penting: form tidak boleh dihapus sebelum iframe selesai load,
+             * karena di beberapa browser/dev tunnel request bisa batal dan timeout.
+             */
+            const mainForm = document.getElementById('costingForm');
+            const url = document.getElementById('quickMaterialUpdateUrl')?.value || '';
+
+            if (!mainForm || !url) {
+                hideAppLoading();
+                openAppNotify('Endpoint quick update Material belum tersedia.', 'error');
+                return;
+            }
+
+            showAppLoading('Menyimpan cepat Material...');
+
+            const iframeName = 'materialQuickUpdateFrame';
+            let iframe = document.querySelector(`iframe[name="${iframeName}"]`);
+
+            if (!iframe) {
+                iframe = document.createElement('iframe');
+                iframe.name = iframeName;
+                iframe.id = iframeName;
+                iframe.style.position = 'absolute';
+                iframe.style.left = '-9999px';
+                iframe.style.top = '-9999px';
+                iframe.style.width = '1px';
+                iframe.style.height = '1px';
+                iframe.style.border = '0';
+                document.body.appendChild(iframe);
+            }
+
+            const oldForm = document.getElementById('materialQuickUpdateHiddenForm');
+            if (oldForm) {
+                oldForm.remove();
+            }
+
+            const quickForm = document.createElement('form');
+            quickForm.id = 'materialQuickUpdateHiddenForm';
+            quickForm.method = 'POST';
+            quickForm.action = url;
+            quickForm.target = iframeName;
+            quickForm.style.position = 'absolute';
+            quickForm.style.left = '-9999px';
+            quickForm.style.top = '-9999px';
+            quickForm.style.width = '1px';
+            quickForm.style.height = '1px';
+            quickForm.style.overflow = 'hidden';
+
+            const appendHidden = (name, value) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value === null || value === undefined ? '' : String(value);
+                quickForm.appendChild(input);
+            };
+
+            const token = mainForm.querySelector('input[name="_token"]')?.value
+                || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                || '';
+
+            appendHidden('_token', token);
+
+            [
+                'costing_data_id',
+                'tracking_revision_id',
+                'forecast',
+                'project_period',
+                'material_cost',
+            ].forEach((name) => {
+                const el = mainForm.querySelector(`[name="${name}"]`);
+                if (el) {
+                    appendHidden(name, el.value);
+                }
+            });
+
+            appendHidden('materials_json', JSON.stringify(changedRows));
+            appendHidden('quick_update_version', 'v5');
+
+            document.body.appendChild(quickForm);
+
+            let handled = false;
+            let timeout = null;
+
+            const cleanup = () => {
+                clearTimeout(timeout);
+                iframe.removeEventListener('load', handleLoad);
+
+                const submittedForm = document.getElementById('materialQuickUpdateHiddenForm');
+                if (submittedForm) {
+                    submittedForm.remove();
+                }
+            };
+
+            const handleLoad = function () {
+                if (handled) {
+                    return;
+                }
+
+                handled = true;
+
+                let responseText = '';
+
+                try {
+                    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                    responseText = (doc?.body?.innerText || doc?.body?.textContent || '').trim();
+                } catch (error) {
+                    cleanup();
+                    hideAppLoading();
+                    openAppNotify('Gagal membaca response quick update Material.', 'error');
+                    return;
+                }
+
+                cleanup();
+
+                let data = null;
+
+                try {
+                    data = responseText ? JSON.parse(responseText) : {};
+                } catch (error) {
+                    hideAppLoading();
+
+                    const shortMessage = responseText
+                        ? responseText.replace(/\s+/g, ' ').slice(0, 300)
+                        : 'Response kosong dari server.';
+
+                    openAppNotify('Gagal menyimpan cepat: ' + shortMessage, 'error');
+                    return;
+                }
+
+                if (!data || data.success === false) {
+                    hideAppLoading();
+                    openAppNotify('Gagal menyimpan cepat: ' + (data?.message || 'Server menolak request.'), 'error');
+                    return;
+                }
+
+                isMaterialDirty = false;
+                refreshMaterialInitialSnapshot();
+
+                if (data.material_cost !== undefined) {
+                    setResumeMoneyValue('materialCost', Number(data.material_cost || 0));
+                    calculateTotals(false);
+                }
+
+                if (typeof onSuccess === 'function') {
+                    onSuccess(data);
+                }
+            };
+
+            iframe.addEventListener('load', handleLoad);
+
+            timeout = setTimeout(function () {
+                if (handled) {
+                    return;
+                }
+
+                handled = true;
+                cleanup();
+                hideAppLoading();
+                openAppNotify('Gagal menyimpan cepat: request timeout. Server tidak mengembalikan response quick update.', 'error');
+            }, 120000);
+
+            quickForm.submit();
         }
 
         function buildMaterialSectionPayload(form) {
@@ -2349,19 +2995,12 @@
 
             appendIfPresent('update_section', 'material');
 
-            const materials = [];
-            const materialRows = form.querySelectorAll('#materialTableBody tr');
-            materialRows.forEach((row) => {
-                const material = {};
-                row.querySelectorAll('input, select, textarea').forEach((control) => {
-                    const match = (control.name || '').match(/^materials\[(\d+)\]\[(.+)\]$/);
-                    if (!match) return;
-                    material[match[2]] = control.value;
-                });
-
-                if (Object.keys(material).length > 0) {
-                    materials.push(material);
-                }
+            const materials = collectMaterialRowsForPayload(form).map((row) => {
+                const clone = { ...row };
+                delete clone.__row_index;
+                delete clone.__row_no;
+                delete clone.__dirty;
+                return clone;
             });
             appendIfPresent('materials_json', JSON.stringify(materials));
 
@@ -3119,6 +3758,10 @@
 
             materialBody.addEventListener('input', function (event) {
                 isMaterialDirty = true;
+                const dirtyRow = event.target?.closest ? event.target.closest('tr') : null;
+                if (dirtyRow && dirtyRow.closest('#materialTableBody')) {
+                    dirtyRow.dataset.materialDirty = '1';
+                }
                 const target = event.target;
                 if (!(target instanceof HTMLInputElement)) {
                     return;
@@ -3157,6 +3800,10 @@
 
             materialBody.addEventListener('change', function (event) {
                 const target = event.target;
+                const dirtyRow = target?.closest ? target.closest('tr') : null;
+                if (dirtyRow && dirtyRow.closest('#materialTableBody')) {
+                    dirtyRow.dataset.materialDirty = '1';
+                }
                 if (!(target instanceof HTMLElement)) {
                     return;
                 }
@@ -3643,6 +4290,70 @@
             return prefixes.some(prefix => fieldName.startsWith(prefix));
         }
 
+        function submitResumeCogmSectionFromEnter(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const target = event.target;
+            if (target && typeof formatResumeMoneyInput === 'function') {
+                formatResumeMoneyInput(target);
+            }
+
+            if (typeof calculateTotals === 'function') {
+                calculateTotals(false);
+            }
+
+            if (typeof normalizeResumeMoneyInputsForSubmit === 'function') {
+                /*
+                 * Jangan panggil normalize di sini. Normalisasi akan dipanggil oleh
+                 * submit handler utama tepat sebelum submit. Di sini tetap biarkan
+                 * tampilan format Indonesia supaya nilai tidak terlihat hilang/berubah.
+                 */
+            }
+
+            const form = document.getElementById('costingForm');
+            const resumeButton = form?.querySelector('.section-update-btn[data-section="resume_cogm"]');
+
+            if (!form || !resumeButton) {
+                return;
+            }
+
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit(resumeButton);
+            } else {
+                const updateSectionInput = document.getElementById('updateSectionInput');
+                if (updateSectionInput) {
+                    updateSectionInput.value = 'resume_cogm';
+                }
+
+                resumeButton.click();
+            }
+        }
+
+        function bindResumeCogmEnterSave() {
+            ['overheadCost', 'scrapCost'].forEach(function (inputId) {
+                const input = document.getElementById(inputId);
+                if (!input || input.dataset.enterSaveBound === '1') {
+                    return;
+                }
+
+                input.dataset.enterSaveBound = '1';
+
+                input.addEventListener('keydown', function (event) {
+                    if (event.key !== 'Enter') {
+                        return;
+                    }
+
+                    submitResumeCogmSectionFromEnter(event);
+                });
+
+                input.addEventListener('blur', function () {
+                    formatResumeMoneyInput(input);
+                    calculateTotals(false);
+                });
+            });
+        }
+
         function prepareSectionOnlySubmit(section, submitter) {
             if (!section) return;
 
@@ -3906,11 +4617,21 @@
                 });
             }
 
+            bindResumeCogmEnterSave();
+
             const costingForm = document.getElementById('costingForm');
             if (costingForm) {
                 costingForm.addEventListener('submit', function (event) {
                     normalizeMaterialTextInputs();
                     syncForecastHidden();
+
+                    const submitter = event.submitter;
+                    const updateSectionInput = document.getElementById('updateSectionInput');
+                    const section = submitter?.dataset?.section || '';
+
+                    if (section === 'resume_cogm' && typeof calculateTotals === 'function') {
+                        calculateTotals(false);
+                    }
 
                     if (typeof normalizeResumeMoneyInputsForSubmit === 'function') {
                         normalizeResumeMoneyInputsForSubmit();
@@ -3924,25 +4645,71 @@
 
                     refreshUnpricedRecap();
 
-                    const submitter = event.submitter;
-                    const updateSectionInput = document.getElementById('updateSectionInput');
-                    const section = submitter?.dataset?.section || '';
-
                     if (updateSectionInput) {
                         updateSectionInput.value = section;
                     }
 
+                    if (section !== 'material') {
+                        const validationResult = getMaterialSectionValidationResult();
+
+                        if (shouldShowMaterialValidationNotice(validationResult)) {
+                            event.preventDefault();
+
+                            showMaterialValidationModal(validationResult.message, validationResult.type, function () {
+                                acknowledgeMaterialValidationNotice(validationResult);
+                                bypassMaterialValidationNoticeOnce = true;
+
+                                if (typeof costingForm.requestSubmit === 'function') {
+                                    costingForm.requestSubmit(submitter || undefined);
+                                } else {
+                                    costingForm.submit();
+                                }
+                            });
+
+                            return;
+                        }
+                    }
+
                     if (section === 'material') {
                         event.preventDefault();
-                        submitMaterialSectionAjax(function(data) {
+
+                        refreshMaterialValidationHighlights();
+
+                        const changedRows = getChangedMaterialRowsForQuickUpdate();
+                        const hasActualMaterialChanges = materialStructureDirty || changedRows.length > 0;
+
+                        if (!hasActualMaterialChanges) {
+                            hideAppLoading();
+
+                            if (typeof openAppNotify === 'function') {
+                                openAppNotify('Tidak ada perubahan Material yang perlu disimpan.', 'info');
+                            } else {
+                                alert('Tidak ada perubahan Material yang perlu disimpan.');
+                            }
+
+                            isMaterialDirty = false;
+                            refreshMaterialInitialSnapshot();
+                            return;
+                        }
+
+                        const afterSave = function(data) {
                             hideAppLoading();
                             openAppNotify('Bagian Material berhasil disimpan.', 'success');
                             markMaterialControlsUndoBase();
-                            // Trigger unpriced banner update if part of response
+                            isMaterialDirty = false;
+                            refreshMaterialInitialSnapshot();
+
                             if (data && data.open_unpriced_count !== undefined) {
                                 updateUnpricedBanner(data.open_unpriced_count);
                             }
-                        });
+                        };
+
+                        if (!materialStructureDirty && changedRows.length > 0) {
+                            submitMaterialQuickUpdateAjax(changedRows, afterSave);
+                            return;
+                        }
+
+                        submitMaterialSectionAjax(afterSave);
                         return;
                     }
 

@@ -1712,9 +1712,29 @@ class CostingController extends Controller
                 ]);
             }
 
+            /*
+             * Tombol utama "Simpan Data Costing" dan section Resume COGM harus
+             * menyimpan angka yang sedang tampil di form. Ini mencegah nilai
+             * Material Cost kembali membesar karena perbedaan format angka atau
+             * kalkulasi ulang material lama yang belum normal.
+             */
+            if (($updateSection === '' || $updateSection === 'resume_cogm') && $request->has('material_cost')) {
+                $costingData->update([
+                    'material_cost' => $this->parseNumericInput($request->input('material_cost', 0)),
+                ]);
+            }
+
             DB::commit();
 
-            $redirectUrl = $responseService->buildRedirectUrl((int) $costingData->id, $trackingRevisionId ? (int) $trackingRevisionId : null);
+            /*
+             * Tombol utama "Simpan Data Costing" dianggap sebagai final submit.
+             * Setelah berhasil, arahkan user kembali ke halaman Project.
+             * Tombol Update per section tetap kembali ke Form Costing agar user bisa lanjut edit section lain.
+             */
+            $redirectUrl = $updateSection === ''
+                ? route('tracking-documents.index', [], false)
+                : $responseService->buildRedirectUrl((int) $costingData->id, $trackingRevisionId ? (int) $trackingRevisionId : null);
+
             $successMessage = $responseService->buildSuccessMessage(
                 $updateSection,
                 $importFromPartlist,
@@ -1722,6 +1742,10 @@ class CostingController extends Controller
                 $importFromCycleTime,
                 count($importedCycleTimeRows)
             );
+
+            if ($updateSection === '') {
+                $successMessage = 'Data costing berhasil disimpan.';
+            }
 
             if ($importFromPartlist) {
                 session()->flash('just_imported_partlist', true);
@@ -1746,7 +1770,7 @@ class CostingController extends Controller
                 ]);
             }
 
-            return response('', 302, ['Location' => $redirectUrl]);
+            return redirect($redirectUrl);
         } catch (MissingProjectInformationException $e) {
             DB::rollBack();
             return back()->with('error', $e->getMessage())->withInput();
@@ -1771,6 +1795,158 @@ class CostingController extends Controller
         }
     }
 
+    public function quickUpdateMaterial(Request $request)
+    {
+        $validated = $request->validate([
+            'costing_data_id' => ['required', 'integer', 'exists:costing_data,id'],
+            'materials_json' => ['required', 'string'],
+            'material_cost' => ['nullable'],
+        ]);
+
+        $rows = json_decode((string) $validated['materials_json'], true);
+        if (!is_array($rows)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payload Material tidak valid.',
+            ], 422);
+        }
+
+        $costingData = CostingData::findOrFail((int) $validated['costing_data_id']);
+
+        DB::beginTransaction();
+
+        try {
+            $columns = \Illuminate\Support\Facades\Schema::getColumnListing('material_breakdowns');
+            $columnMap = array_fill_keys($columns, true);
+            $now = now();
+            $updatedRows = 0;
+
+            foreach ($rows as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+
+                $rowNo = (int) ($row['__row_no'] ?? 0);
+                if ($rowNo <= 0) {
+                    $rowNo = ((int) ($row['__row_index'] ?? 0)) + 1;
+                }
+
+                if ($rowNo <= 0) {
+                    continue;
+                }
+
+                $unit = $this->normalizeUnitValue($row['unit'] ?? '');
+                $currency = strtoupper(trim((string) ($row['currency'] ?? 'IDR')));
+                $cnType = strtoupper(trim((string) ($row['cn_type'] ?? 'N')));
+
+                if (!in_array($currency, ['IDR', 'USD', 'JPY'], true)) {
+                    $currency = 'IDR';
+                }
+
+                if (!in_array($cnType, ['C', 'N', 'E'], true)) {
+                    $cnType = 'N';
+                }
+
+                $materialRow = [
+                    'part_no' => trim((string) ($row['part_no'] ?? '')),
+                    'id_code' => trim((string) ($row['id_code'] ?? '')) ?: null,
+                    'part_name' => trim((string) ($row['part_name'] ?? '')),
+                    'qty_req' => round($this->toFloatValue($row['qty_req'] ?? 0), 6),
+                    'unit' => $unit,
+                    'pro_code' => trim((string) ($row['pro_code'] ?? '')),
+                    'amount1' => round($this->toFloatValue($row['amount1'] ?? 0), 6),
+                    'unit_price_basis' => round($this->toFloatValue($row['unit_price_basis'] ?? 0), 6),
+                    'unit_price_basis_text' => trim((string) ($row['unit_price_basis'] ?? '')) ?: null,
+                    'currency' => $currency,
+                    'qty_moq' => round($this->toFloatValue($row['qty_moq'] ?? 0), 6),
+                    'cn_type' => $cnType,
+                    'supplier' => trim((string) ($row['supplier'] ?? '')),
+                    'import_tax' => round($this->toFloatValue($row['import_tax'] ?? 0), 6),
+                ];
+
+                $calculated = $this->calculateCogmMaterialAmount2($materialRow, $costingData);
+
+                $payload = [
+                    'row_no' => $rowNo,
+                    'part_no' => $materialRow['part_no'],
+                    'id_code' => $materialRow['id_code'],
+                    'part_name' => $materialRow['part_name'],
+                    'qty_req' => $materialRow['qty_req'],
+                    'pro_code' => $materialRow['pro_code'],
+                    'amount1' => $materialRow['amount1'],
+                    'unit_price_basis' => $materialRow['unit_price_basis'],
+                    'unit_price_basis_text' => $materialRow['unit_price_basis_text'],
+                    'currency' => $materialRow['currency'],
+                    'qty_moq' => $materialRow['qty_moq'],
+                    'cn_type' => $materialRow['cn_type'],
+                    'import_tax_percent' => $materialRow['import_tax'],
+                    'amount2' => $calculated['amount2'],
+                    'updated_at' => $now,
+                ];
+
+                if (isset($columnMap['unit'])) {
+                    $payload['unit'] = $materialRow['unit'];
+                }
+
+                if (isset($columnMap['supplier'])) {
+                    $payload['supplier'] = $materialRow['supplier'];
+                }
+
+                if (isset($columnMap['multiply_factor'])) {
+                    $payload['multiply_factor'] = $calculated['multiply_factor'];
+                }
+
+                if (isset($columnMap['currency2'])) {
+                    $payload['currency2'] = $materialRow['currency'];
+                }
+
+                if (isset($columnMap['unit_price2'])) {
+                    $payload['unit_price2'] = $calculated['amount2'];
+                }
+
+                $payload = array_intersect_key($payload, $columnMap);
+
+                $affected = MaterialBreakdown::where('costing_data_id', $costingData->id)
+                    ->where('row_no', $rowNo)
+                    ->update($payload);
+
+                $updatedRows += (int) $affected;
+            }
+
+            $materialCost = $request->has('material_cost')
+                ? $this->parseNumericInput($request->input('material_cost', 0))
+                : (float) ($costingData->material_cost ?? 0);
+
+            $costingData->update([
+                'material_cost' => $materialCost,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Material berhasil disimpan cepat.',
+                'material_cost' => $materialCost,
+                'sent_rows' => count($rows),
+                'updated_rows' => $updatedRows,
+                'version' => 'quick-update-v2',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            \Log::error('CostingController@quickUpdateMaterial error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan cepat: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function importPartlist(Request $request, CostingImportService $importService, CostingMaterialService $materialService, CostingPersistenceService $persistenceService, CostingStatusService $statusService, CostingResponseService $responseService)
     {
         $request->merge([
@@ -1788,14 +1964,26 @@ class CostingController extends Controller
 
     public function importCogm(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'import_cogm_file' => ['required', 'file', 'mimes:xls,xlsx'],
-            'costing_data_id' => ['required', 'integer', 'exists:costing_data,id'],
+            'costing_data_id' => ['nullable', 'integer', 'exists:costing_data,id'],
+            'tracking_revision_id' => ['nullable', 'integer', 'exists:document_revisions,id'],
+            'business_category_id' => ['required_without:costing_data_id', 'nullable', 'integer', 'exists:business_categories,id'],
+            'customer_id' => ['required_without:costing_data_id', 'nullable', 'integer', 'exists:customers,id'],
+            'period' => ['required_without:costing_data_id', 'nullable', 'string'],
+            'line' => ['nullable', 'string'],
+            'model' => ['nullable', 'string'],
+            'assy_no' => ['nullable', 'string'],
+            'assy_name' => ['nullable', 'string'],
+            'exchange_rate_usd' => ['nullable', 'numeric'],
+            'exchange_rate_jpy' => ['nullable', 'numeric'],
+            'lme_rate' => ['nullable', 'numeric'],
+            'forecast' => ['nullable', 'integer'],
+            'project_period' => ['nullable', 'integer'],
         ]);
 
-        $costingData = CostingData::findOrFail((int) $request->input('costing_data_id'));
-
         try {
+            $costingData = $this->resolveCostingDataForCogmImport($request, $validated);
             $rows = $this->parseCogmExcelToMaterialRows($request->file('import_cogm_file')->getPathname());
 
             if (count($rows) === 0) {
@@ -1811,6 +1999,8 @@ class CostingController extends Controller
             $now = now();
 
             foreach ($rows as $index => $row) {
+                $calculatedCogm = $this->calculateCogmMaterialAmount2($row, $costingData);
+
                 $insert = [
                     'costing_data_id' => $costingData->id,
                     'row_no' => $index + 1,
@@ -1826,7 +2016,7 @@ class CostingController extends Controller
                     'qty_moq' => $row['qty_moq'],
                     'cn_type' => $row['cn_type'],
                     'import_tax_percent' => $row['import_tax'],
-                    'amount2' => $row['amount2'],
+                    'amount2' => $calculatedCogm['amount2'],
                 ];
 
                 if (isset($columnMap['material_id'])) {
@@ -1839,6 +2029,18 @@ class CostingController extends Controller
 
                 if (isset($columnMap['supplier'])) {
                     $insert['supplier'] = $row['supplier'];
+                }
+
+                if (isset($columnMap['multiply_factor'])) {
+                    $insert['multiply_factor'] = $calculatedCogm['multiply_factor'];
+                }
+
+                if (isset($columnMap['currency2'])) {
+                    $insert['currency2'] = $row['currency'];
+                }
+
+                if (isset($columnMap['unit_price2'])) {
+                    $insert['unit_price2'] = $calculatedCogm['amount2'];
                 }
 
                 if (isset($columnMap['created_at'])) {
@@ -1866,11 +2068,10 @@ class CostingController extends Controller
 
             DB::commit();
 
-            return redirect()
-                ->route('form', [
-                    'id' => $costingData->id,
-                    'tracking_revision_id' => $request->input('tracking_revision_id'),
-                ], false)
+            return redirect(route('form', [
+                'id' => $costingData->id,
+                'tracking_revision_id' => $request->input('tracking_revision_id'),
+            ], false))
                 ->with('success', 'Import COGM berhasil. ' . count($rows) . ' baris material masuk ke tabel Material.');
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -1881,8 +2082,82 @@ class CostingController extends Controller
                 'line' => $e->getLine(),
             ]);
 
-            return back()->with('error', 'Gagal import COGM: ' . $e->getMessage());
+            return back()->with('error', 'Gagal import COGM: ' . $e->getMessage())->withInput();
         }
+    }
+
+    private function resolveCostingDataForCogmImport(Request $request, array $validated): CostingData
+    {
+        if (!empty($validated['costing_data_id'])) {
+            return CostingData::findOrFail((int) $validated['costing_data_id']);
+        }
+
+        $trackingRevisionId = $validated['tracking_revision_id'] ?? null;
+
+        if ($trackingRevisionId) {
+            $existing = CostingData::where('tracking_revision_id', $trackingRevisionId)
+                ->latest('id')
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+        }
+
+        $businessCategory = BusinessCategory::findOrFail((int) $validated['business_category_id']);
+        $productColumns = array_fill_keys(\Illuminate\Support\Facades\Schema::getColumnListing('products'), true);
+
+        $productDefaults = [
+            'name' => trim((string) $businessCategory->name),
+        ];
+
+        if (isset($productColumns['line'])) {
+            $productDefaults['line'] = trim((string) $businessCategory->name);
+        }
+
+        $product = Product::firstOrCreate(
+            ['code' => trim((string) $businessCategory->code)],
+            array_intersect_key($productDefaults, $productColumns)
+        );
+
+        $productUpdates = [];
+        if (isset($productColumns['name']) && trim((string) $product->name) !== trim((string) $businessCategory->name)) {
+            $productUpdates['name'] = trim((string) $businessCategory->name);
+        }
+        if (isset($productColumns['line']) && trim((string) $product->line) !== trim((string) $businessCategory->name)) {
+            $productUpdates['line'] = trim((string) $businessCategory->name);
+        }
+        if (!empty($productUpdates)) {
+            $product->update($productUpdates);
+        }
+
+        $costingColumns = array_fill_keys(\Illuminate\Support\Facades\Schema::getColumnListing('costing_data'), true);
+        $payload = [
+            'product_id' => $product->id,
+            'customer_id' => (int) $validated['customer_id'],
+            'tracking_revision_id' => $trackingRevisionId,
+            'period' => $validated['period'],
+            'line' => $validated['line'] ?? null,
+            'model' => $validated['model'] ?? null,
+            'assy_no' => $validated['assy_no'] ?? null,
+            'assy_name' => $validated['assy_name'] ?? null,
+            'exchange_rate_usd' => (float) ($validated['exchange_rate_usd'] ?? 15500),
+            'exchange_rate_jpy' => (float) ($validated['exchange_rate_jpy'] ?? 103),
+            'lme_rate' => $request->filled('lme_rate') ? (float) $validated['lme_rate'] : null,
+            'forecast' => (int) ($validated['forecast'] ?? 0),
+            'project_period' => (int) ($validated['project_period'] ?? 0),
+            'material_cost' => 0,
+            'labor_cost' => 0,
+            'overhead_cost' => 0,
+            'scrap_cost' => 0,
+            'revenue' => 0,
+            'qty_good' => 0,
+            'cycle_times' => [],
+        ];
+
+        $payload = array_intersect_key($payload, $costingColumns);
+
+        return CostingData::create($payload);
     }
 
 
@@ -3588,16 +3863,37 @@ class CostingController extends Controller
             $lastDotPos = strrpos($normalized, '.');
 
             if ($lastCommaPos !== false && $lastDotPos !== false && $lastCommaPos > $lastDotPos) {
+                // Format Indonesia: 244.289,30 => 244289.30
                 $normalized = str_replace('.', '', $normalized);
                 $normalized = str_replace(',', '.', $normalized);
             } else {
+                // Format international: 244,289.30 => 244289.30
                 $normalized = str_replace(',', '', $normalized);
             }
         } elseif ($hasComma && !$hasDot) {
+            // Format Indonesia tanpa ribuan: 244289,30 => 244289.30
             $normalized = str_replace(',', '.', $normalized);
         } elseif ($hasDot && !$hasComma) {
-            // If it only has dots, assume they are ONE OR MORE thousand separators (e.g. from frontend)
-            $normalized = str_replace('.', '', $normalized);
+            /*
+             * Bisa berarti:
+             * - raw decimal dari frontend: 244289.3
+             * - ribuan Indonesia: 244.289
+             *
+             * Kalau angka setelah titik bukan tepat 3 digit, anggap titik sebagai desimal.
+             * Kalau titik lebih dari satu, anggap sebagai ribuan.
+             */
+            $dotCount = substr_count($normalized, '.');
+            $lastDotPos = strrpos($normalized, '.');
+            $digitsAfterLastDot = $lastDotPos === false ? 0 : strlen($normalized) - $lastDotPos - 1;
+            $digitsBeforeLastDot = $lastDotPos === false ? 0 : strlen(ltrim(substr($normalized, 0, $lastDotPos), '-'));
+
+            $looksLikeLeadingDecimal = preg_match('/^-?0\.\d+$/', $normalized) === 1;
+            $looksLikeThousands = !$looksLikeLeadingDecimal
+                && ($dotCount > 1 || ($digitsAfterLastDot === 3 && $digitsBeforeLastDot > 1));
+
+            if ($looksLikeThousands) {
+                $normalized = str_replace('.', '', $normalized);
+            }
         }
 
         return is_numeric($normalized) ? (float) $normalized : 0;
@@ -3621,6 +3917,44 @@ class CostingController extends Controller
 
         $decoded = json_decode($value, true);
         return is_array($decoded) ? $decoded : [];
+    }
+
+    private function calculateCogmMaterialAmount2(array $row, CostingData $costingData): array
+    {
+        $qtyReq = max(0.0, (float) ($row['qty_req'] ?? 0));
+        $qtyMoq = max(0.0, (float) ($row['qty_moq'] ?? 0));
+        $amount1 = max(0.0, (float) ($row['amount1'] ?? 0));
+        $importTax = max(0.0, (float) ($row['import_tax'] ?? 0));
+        $cnType = strtoupper(trim((string) ($row['cn_type'] ?? 'N')));
+        $unit = strtoupper(trim((string) ($row['unit'] ?? '')));
+
+        $forecast = max(0.0, (float) ($costingData->forecast ?? 0));
+        $projectPeriod = max(0.0, (float) ($costingData->project_period ?? 0));
+
+        /*
+         * Samakan dengan rumus JavaScript di form:
+         * - Multiply Factor memakai divisor 1000 khusus UNIT = MM
+         * - Amount 2 memakai divisor 1000 untuk METER/M/MTR/MM
+         */
+        $multiplyUnitDivisor = ($unit === 'MM') ? 1000.0 : 1.0;
+
+        if ($qtyReq <= 0) {
+            $multiplyFactor = 0.0;
+        } else {
+            $denominator = $forecast * $projectPeriod * 12 * $qtyReq;
+            $denominator = $denominator != 0.0 ? ($denominator / $multiplyUnitDivisor) : 0.0;
+            $ratio = $denominator != 0.0 ? ($qtyMoq / $denominator) : 0.0;
+            $multiplyFactor = ($cnType === 'C' || $ratio < 1) ? 1.0 : $ratio;
+        }
+
+        $base = $amount1 + ($amount1 * ($importTax / 100));
+        $amountUnitDivisor = in_array($unit, ['METER', 'M', 'MTR', 'MM'], true) ? 1000.0 : 1.0;
+        $amount2 = $amountUnitDivisor != 0.0 ? (($multiplyFactor * $base) / $amountUnitDivisor) : 0.0;
+
+        return [
+            'multiply_factor' => round($multiplyFactor, 8),
+            'amount2' => round($amount2, 8),
+        ];
     }
 
     private function calculateMaterialCostFromBreakdowns(int $costingDataId, float $usdRate, float $jpyRate): float
