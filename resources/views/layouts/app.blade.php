@@ -513,6 +513,7 @@
                     </div>
                     <div class="header-right">
                         @yield('header-filters')
+                        @include('partials.top-notification-bell')
                         <nav class="nav-tabs">
                             <a href="{{ route('dashboard', absolute: false) }}"
                                 class="nav-tab {{ request()->routeIs('dashboard') ? 'active' : '' }}">
@@ -640,7 +641,6 @@
         let appConfirmCurrentOnConfirm = null;
         let appNotifyCurrentOnClose = null;
         let appLoadingVisible = false;
-        window.appSkipBeforeUnloadLoading = false;
 
         function showAppLoading(message) {
             const overlay = document.getElementById('app-loading-overlay');
@@ -859,10 +859,6 @@
             }, true);
 
             window.addEventListener('beforeunload', function () {
-                if (window.appSkipBeforeUnloadLoading === true) {
-                    return;
-                }
-
                 showAppLoading('Memuat halaman...');
             });
 

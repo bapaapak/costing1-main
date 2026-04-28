@@ -1,6 +1,12 @@
 @php
     use App\Models\DocumentRevision;
 
+    /*
+     * Notification Bell Project
+     * - Dokumen project: muncul kalau belum ada satupun A00/A04/A05.
+     * - Project costing: muncul kalau status belum sampai minimal "Sudah Costing".
+     */
+
     $latestRevisionIds = DocumentRevision::query()
         ->selectRaw('MAX(id) as id')
         ->whereNotNull('document_project_id')
@@ -19,24 +25,26 @@
             continue;
         }
 
-        $customerName = $project->customer ?? '-';
-        $modelName = $project->model ?? '-';
+        $customerName = trim((string) ($project->customer ?? '-'));
+        $modelName = trim((string) ($project->model ?? '-'));
+
+        $hasA00 = ($revision->a00 ?? null) === 'ada';
+        $hasA04 = ($revision->a04 ?? null) === 'ada';
+        $hasA05 = ($revision->a05 ?? null) === 'ada';
 
         /*
-         * Notifikasi dokumen project:
-         * Notif muncul hanya kalau project belum punya satupun dokumen A00/A04/A05.
-         * Kalau minimal salah satu sudah "ada", notif dokumen hilang.
+         * Pemberitahuan dokumen project:
+         * Format: Nama Customer - Model - Keterangan
+         * Contoh: Astra Honda Motor, PT - K5FA - A00 belum ada
+         *
+         * Notifikasi dokumen hilang kalau minimal salah satu A00/A04/A05 sudah ada.
          */
-        $hasAnyProjectDocument = ($revision->a00 ?? null) === 'ada'
-            || ($revision->a04 ?? null) === 'ada'
-            || ($revision->a05 ?? null) === 'ada';
-
-        if (! $hasAnyProjectDocument) {
+        if (! $hasA00 && ! $hasA04 && ! $hasA05) {
             $notificationItems->push([
                 'type' => 'document',
-                'title' => 'Dokumen project belum lengkap',
+                'title' => 'Dokumen project belum ada',
                 'line' => $customerName . ' - ' . $modelName . ' - A00 belum ada',
-                'description' => '',
+                'description' => 'Minimal salah satu dokumen A00, A04, atau A05 harus terisi.',
                 'button_label' => 'Cek Dokumen',
                 'url' => Route::has('database.project-documents')
                     ? route('database.project-documents', absolute: false)
@@ -46,8 +54,9 @@
         }
 
         /*
-         * Notifikasi project:
-         * Notif muncul kalau status belum sampai minimal "Sudah Costing".
+         * Pemberitahuan project:
+         * Format: Nama Customer - Model - Keterangan
+         * Contoh: Astra Honda Motor, PT - K5FA - Belum costing
          */
         $costingReachedStatuses = [
             DocumentRevision::STATUS_SUDAH_COSTING,
@@ -59,9 +68,9 @@
         if (! in_array($revision->status, $costingReachedStatuses, true)) {
             $notificationItems->push([
                 'type' => 'project',
-                'title' => 'Project belum sampai status "Sudah Costing"',
+                'title' => 'Project belum costing',
                 'line' => $customerName . ' - ' . $modelName . ' - Belum costing',
-                'description' => '',
+                'description' => 'Project masih perlu diproses ke Form Costing.',
                 'button_label' => 'Cek Project',
                 'url' => Route::has('tracking-documents.index')
                     ? route('tracking-documents.index', absolute: false)
@@ -80,15 +89,15 @@
         display: inline-flex;
         align-items: center;
         margin-left: 0.75rem;
-        z-index: 90;
+        z-index: 2000;
     }
 
     .top-notification-button {
         width: 42px;
         height: 42px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.22);
         border-radius: 14px;
-        background: rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.13);
         color: #ffffff;
         display: inline-flex;
         align-items: center;
@@ -96,11 +105,11 @@
         cursor: pointer;
         position: relative;
         transition: 0.18s ease;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
     }
 
     .top-notification-button:hover {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.22);
         transform: translateY(-1px);
     }
 
@@ -119,7 +128,7 @@
         border-radius: 999px;
         background: #ef4444;
         color: #ffffff;
-        font-size: 0.7rem;
+        font-size: 0.68rem;
         font-weight: 900;
         line-height: 20px;
         text-align: center;
@@ -131,14 +140,14 @@
         position: absolute;
         top: calc(100% + 12px);
         right: 0;
-        width: min(410px, calc(100vw - 24px));
+        width: min(430px, calc(100vw - 24px));
         background: #ffffff;
         border: 1px solid #dbeafe;
         border-radius: 16px;
-        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
         display: none;
         overflow: hidden;
-        z-index: 9999;
+        z-index: 99999;
     }
 
     .top-notification-dropdown.is-open {
@@ -174,13 +183,10 @@
         color: #0f172a;
     }
 
-    .top-notification-read {
-        border: 0;
-        background: transparent;
-        color: #2563eb;
+    .top-notification-count-text {
         font-size: 0.72rem;
+        color: #64748b;
         font-weight: 800;
-        cursor: pointer;
     }
 
     .top-notification-body {
@@ -313,6 +319,10 @@
     }
 
     @media (max-width: 768px) {
+        .top-notification-wrapper {
+            margin-left: 0.35rem;
+        }
+
         .top-notification-dropdown {
             right: -10px;
             width: calc(100vw - 32px);
@@ -321,7 +331,7 @@
 </style>
 
 <div class="top-notification-wrapper">
-    <button type="button" class="top-notification-button" id="topNotificationButton" aria-label="Buka notifikasi">
+    <button type="button" class="top-notification-button" id="topNotificationButton" aria-label="Buka notifikasi project">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/>
@@ -335,23 +345,17 @@
 
     <div class="top-notification-dropdown" id="topNotificationDropdown">
         <div class="top-notification-header">
-            <div class="top-notification-title">Notifikasi</div>
-            @if($notificationCount > 0)
-                <button type="button" class="top-notification-read" onclick="closeTopNotificationDropdown()">
-                    Tandai dibaca
-                </button>
-            @endif
+            <div class="top-notification-title">Notifikasi Project</div>
+            <div class="top-notification-count-text">
+                {{ $notificationCount }} notifikasi
+            </div>
         </div>
 
         <div class="top-notification-body">
             @forelse($notificationItems as $item)
                 <div class="top-notification-item is-{{ $item['color'] }}">
                     <div class="top-notification-icon is-{{ $item['color'] }}">
-                        @if($item['type'] === 'document')
-                            !
-                        @else
-                            i
-                        @endif
+                        {{ $item['type'] === 'document' ? '!' : 'i' }}
                     </div>
 
                     <div class="top-notification-content">
@@ -378,7 +382,7 @@
         </div>
 
         <div class="top-notification-footer">
-            {{ $notificationCount > 0 ? $notificationCount . ' notifikasi perlu ditindaklanjuti' : 'Semua notifikasi aman' }}
+            {{ $notificationCount > 0 ? 'Ada project yang perlu ditindaklanjuti' : 'Semua notifikasi aman' }}
         </div>
     </div>
 </div>
@@ -410,9 +414,5 @@
                 dropdown.classList.remove('is-open');
             }
         });
-
-        window.closeTopNotificationDropdown = function () {
-            dropdown.classList.remove('is-open');
-        };
     })();
 </script>
