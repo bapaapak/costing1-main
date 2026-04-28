@@ -640,6 +640,7 @@
         let appConfirmCurrentOnConfirm = null;
         let appNotifyCurrentOnClose = null;
         let appLoadingVisible = false;
+        window.appSkipBeforeUnloadLoading = false;
 
         function showAppLoading(message) {
             const overlay = document.getElementById('app-loading-overlay');
@@ -858,6 +859,10 @@
             }, true);
 
             window.addEventListener('beforeunload', function () {
+                if (window.appSkipBeforeUnloadLoading === true) {
+                    return;
+                }
+
                 showAppLoading('Memuat halaman...');
             });
 
