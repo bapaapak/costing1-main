@@ -1660,7 +1660,17 @@ class CostingController extends Controller
         }
 
         if ($importCycleTimeRequested) {
-            $cycleTimeImport = $importService->prepareCycleTimeImport($request);
+            /*
+             * Import UMH/Cycle Time wajib mengikuti format Excel aktual:
+             * B17 ke bawah = NO
+             * C17 ke bawah = PROCESS
+             * F17 ke bawah = QTY
+             * G17 ke bawah = TIME (HOUR)
+             *
+             * Jangan memakai parser service lama karena masih membaca format lain.
+             */
+            $cycleTimeImport = $this->loadCycleTimeRows($request->file('import_cycle_time_file'));
+
             if (!empty($cycleTimeImport['error'])) {
                 return back()->with('error', $cycleTimeImport['error'])->withInput();
             }
@@ -1947,6 +1957,31 @@ class CostingController extends Controller
         }
     }
 
+    private function toStoreCostingRequest(Request $request): StoreCostingRequest
+    {
+        /*
+         * import-partlist / import-umh / import-cycle-time masuk lewat route upload
+         * biasa sehingga tipe request-nya Illuminate\Http\Request.
+         * Method store() membutuhkan StoreCostingRequest karena memakai validated()
+         * dan resolvedUpdateSection(). Jadi request upload dikonversi dulu ke
+         * StoreCostingRequest agar bisa memakai flow penyimpanan yang sama.
+         */
+        $storeRequest = StoreCostingRequest::createFrom($request);
+        $storeRequest->setContainer(app());
+        $storeRequest->setRedirector(app('redirect'));
+        $storeRequest->setUserResolver($request->getUserResolver());
+        $storeRequest->setRouteResolver($request->getRouteResolver());
+
+        /*
+         * Wajib dipanggil sebelum store(), karena store() memakai $request->validated().
+         * Kalau tidak, FormRequest belum punya validator dan akan error:
+         * "Call to a member function validated() on null".
+         */
+        $storeRequest->validateResolved();
+
+        return $storeRequest;
+    }
+
     public function importPartlist(Request $request, CostingImportService $importService, CostingMaterialService $materialService, CostingPersistenceService $persistenceService, CostingStatusService $statusService, CostingResponseService $responseService)
     {
         $request->merge([
@@ -1954,7 +1989,8 @@ class CostingController extends Controller
             'import_partlist' => 1,
         ]);
 
-        $response = $this->store($request, $importService, $materialService, $persistenceService, $statusService, $responseService);
+        $storeRequest = $this->toStoreCostingRequest($request);
+        $response = $this->store($storeRequest, $importService, $materialService, $persistenceService, $statusService, $responseService);
 
         $redirect = $responseService->resolveRedirectTarget($response) ?: route('form', [], false);
         session()->reflash();
@@ -2734,6 +2770,22 @@ class CostingController extends Controller
         return trim((string) $sheet->getCell($column . $row)->getFormattedValue());
     }
 
+    public function importUmh(Request $request, CostingImportService $importService, CostingMaterialService $materialService, CostingPersistenceService $persistenceService, CostingStatusService $statusService, CostingResponseService $responseService)
+    {
+        if ($request->hasFile('import_umh_file') && !$request->hasFile('import_cycle_time_file')) {
+            $request->files->set('import_cycle_time_file', $request->file('import_umh_file'));
+        }
+
+        $request->merge([
+            'update_section' => 'cycle_time',
+            'import_cycle_time' => 1,
+        ]);
+
+        $storeRequest = $this->toStoreCostingRequest($request);
+
+        return $this->store($storeRequest, $importService, $materialService, $persistenceService, $statusService, $responseService);
+    }
+
     public function importCycleTime(Request $request, CostingImportService $importService, CostingMaterialService $materialService, CostingPersistenceService $persistenceService, CostingStatusService $statusService, CostingResponseService $responseService)
     {
         $request->merge([
@@ -2741,7 +2793,9 @@ class CostingController extends Controller
             'import_cycle_time' => 1,
         ]);
 
-        return $this->store($request, $importService, $materialService, $persistenceService, $statusService, $responseService);
+        $storeRequest = $this->toStoreCostingRequest($request);
+
+        return $this->store($storeRequest, $importService, $materialService, $persistenceService, $statusService, $responseService);
     }
 
     public function downloadCycleTimeTemplate()
@@ -2750,45 +2804,27 @@ class CostingController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Cycle Time');
 
-        $sheet->setCellValue('B17', 'No.');
-        $sheet->setCellValue('C17', 'Process');
-        $sheet->setCellValue('F17', 'Qty');
-        $sheet->setCellValue('G17', 'Time (hour)');
-        $sheet->setCellValue('I17', 'Area of Process');
+        $sheet->setCellValue('B16', 'NO');
+        $sheet->setCellValue('C16', 'PROCESS');
+        $sheet->setCellValue('F16', 'QTY');
+        $sheet->setCellValue('G16', 'TIME (HOUR)');
 
         $sampleRows = [
-            ['no' => 1, 'process' => 'Cutting, Stripping, Crimping', 'qty' => 120, 'time_hour' => 0.40, 'area' => 'PP - Preparation'],
-            ['no' => 2, 'process' => 'Twisting', 'qty' => 120, 'time_hour' => 0.30, 'area' => 'PP - Preparation'],
-            ['no' => 3, 'process' => 'HF Sealer', 'qty' => 120, 'time_hour' => 0.25, 'area' => 'FA - Final Assy'],
+            ['no' => 1, 'process' => 'Cutting, Stripping, Crimping', 'qty' => 120, 'time_hour' => 0.40],
+            ['no' => 2, 'process' => 'Twisting', 'qty' => 120, 'time_hour' => 0.30],
+            ['no' => 3, 'process' => 'HF Sealer', 'qty' => 120, 'time_hour' => 0.25],
         ];
 
-        $startRow = 18;
+        $startRow = 17;
         foreach ($sampleRows as $index => $sample) {
             $row = $startRow + $index;
             $sheet->setCellValue('B' . $row, $sample['no']);
             $sheet->setCellValue('C' . $row, $sample['process']);
             $sheet->setCellValue('F' . $row, $sample['qty']);
             $sheet->setCellValue('G' . $row, $sample['time_hour']);
-            $sheet->setCellValue('I' . $row, $sample['area']);
         }
 
-        // Add dropdown validation for Area of Process (I18:I5000).
-        for ($row = 18; $row <= 5000; $row++) {
-            $validation = $sheet->getCell('I' . $row)->getDataValidation();
-            $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(true);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setErrorTitle('Input tidak valid');
-            $validation->setError('Pilih Area of Process: PP - Preparation atau FA - Final Assy.');
-            $validation->setPromptTitle('Pilih Area of Process');
-            $validation->setPrompt('Gunakan dropdown: PP - Preparation atau FA - Final Assy.');
-            $validation->setFormula1('"PP - Preparation,FA - Final Assy"');
-        }
-
-        foreach (['A', 'B', 'C', 'F', 'G', 'I'] as $column) {
+        foreach (['A', 'B', 'C', 'F', 'G'] as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
@@ -2922,63 +2958,84 @@ class CostingController extends Controller
 
     private function extractCycleTimesFromTemplateSheet(Worksheet $sheet): array
     {
+        /*
+         * FORMAT IMPORT UMH YANG DIPAKAI:
+         * - Data langsung mulai baris 17
+         * - Kolom B17 ke bawah = NO
+         * - Kolom C17 ke bawah = PROCESS
+         * - Kolom F17 ke bawah = QTY
+         * - Kolom G17 ke bawah = TIME (HOUR)
+         *
+         * Tidak membaca kolom I / Area of Process.
+         */
         $highestDataRow = (int) $sheet->getHighestDataRow();
         $highestRow = (int) $sheet->getHighestRow();
-
-        $scanEnd = max($highestDataRow, 18);
-        if ($scanEnd < 18 && $highestRow >= 18) {
-            $scanEnd = min($highestRow, 5000);
-        } else {
-            $scanEnd = min(max($scanEnd + 120, 250), 5000);
-        }
+        $scanEnd = min(max($highestDataRow, $highestRow, 17), 5000);
 
         $cycleTimes = [];
         $emptyStreak = 0;
 
-        for ($row = 18; $row <= $scanEnd; $row++) {
+        for ($row = 17; $row <= $scanEnd; $row++) {
             $noRaw = trim((string) $sheet->getCell('B' . $row)->getFormattedValue());
             $process = trim((string) $sheet->getCell('C' . $row)->getFormattedValue());
             $qtyRaw = trim((string) $sheet->getCell('F' . $row)->getFormattedValue());
             $timeHourRaw = trim((string) $sheet->getCell('G' . $row)->getFormattedValue());
-            $areaRaw = trim((string) $sheet->getCell('I' . $row)->getFormattedValue());
 
             $hasSignal = $noRaw !== ''
                 || $process !== ''
                 || $qtyRaw !== ''
-                || $timeHourRaw !== ''
-                || $areaRaw !== '';
+                || $timeHourRaw !== '';
 
             if (!$hasSignal) {
                 $emptyStreak++;
-                if ($emptyStreak >= 60) {
+
+                if ($emptyStreak >= 10) {
                     break;
                 }
+
                 continue;
             }
 
             $emptyStreak = 0;
 
+            /*
+             * Stop kalau sudah masuk section lain di bawah Process Cost,
+             * misalnya IV. Tooling Depreciation.
+             */
+            $upperProcess = strtoupper($process);
+            if (
+                preg_match('/^[IVX]+\./', $upperProcess) === 1
+                || str_contains($upperProcess, 'TOOLING')
+                || str_contains($upperProcess, 'DEPRECIATION')
+                || str_contains($upperProcess, 'SUMMARY')
+            ) {
+                break;
+            }
+
             if ($process === '') {
                 continue;
             }
 
-            $rowData = [
+            $no = $noRaw !== '' ? $this->toFloatValue($noRaw) : count($cycleTimes) + 1;
+            $qty = $qtyRaw !== '' ? $this->toFloatValue($qtyRaw) : 0;
+            $timeHour = $timeHourRaw !== '' ? $this->toFloatValue($timeHourRaw) : 0;
+            $timeSec = $timeHour > 0 ? $timeHour * 3600 : 0;
+            $timeSecPerQty = ($qty > 0 && $timeSec > 0) ? ($timeSec / $qty) : 0;
+            $costPerSec = 10.33;
+            $costPerUnit = $timeSecPerQty > 0 ? ($timeSecPerQty * $costPerSec) : 0;
+
+            $cycleTimes[] = [
+                'no' => $no,
+                'row_no' => $no,
                 'process' => $process,
-                'qty' => $qtyRaw !== '' ? $this->toFloatValue($qtyRaw) : null,
-                'time_hour' => $timeHourRaw !== '' ? $this->toFloatValue($timeHourRaw) : null,
-                'time_sec' => null,
-                'time_sec_per_qty' => null,
-                'cost_per_sec' => 10.33,
-                'cost_per_unit' => null,
-                'area_of_process' => $this->normalizeAreaOfProcess($areaRaw),
+                'qty' => $qty,
+                'time_hour' => $timeHour,
+                'time_sec' => $timeSec,
+                'time_sec_per_qty' => $timeSecPerQty,
+                'cost_per_sec' => $costPerSec,
+                'cost_per_unit' => $costPerUnit,
+                'area_of_process' => null,
             ];
-
-            // Qty only applied when process (column C) exists.
-            if ($rowData['process'] === '') {
-                $rowData['qty'] = null;
-            }
-
-            $cycleTimes[] = $rowData;
         }
 
         return $cycleTimes;
