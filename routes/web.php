@@ -52,7 +52,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:laporan')->group(function () {
         Route::get('/resume-cogm', [ReportController::class, 'resumeCogm'])->name('resume-cogm');
         Route::get('/analisis-tren', [ReportController::class, 'analisisTren'])->name('analisis-tren');
-        Route::get('/cogm-submissions', [ReportController::class, 'cogmSubmissions'])->name('cogm-submissions');
+        Route::get('/analisis-tren/canceled-failed', [ReportController::class, 'analisisTrenCanceled'])->name('analisis-tren.canceled');
+        Route::get('/analisis-tren/detail-dokumen-engineering', [ReportController::class, 'analisisTrenEngineering'])->name('analisis-tren.engineering');
         Route::get('/laporan', [ReportController::class, 'laporan'])->name('laporan');
         Route::get('/audit-trail', [ReportController::class, 'auditTrail'])->name('audit-trail');
     });
@@ -161,7 +162,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/costing/import-cogm', [CostingController::class, 'importCogm'])->name('costing.import-cogm');
         Route::get('/costing/import-umh', fn () => redirect()->route('form'))->name('costing.import-umh.get');
         Route::post('/costing/import-umh', [CostingController::class, 'importUmh'])->name('costing.import-umh');
-        Route::patch('/costing/status-project/{revisionId}', [CostingController::class, 'updateStatusProject'])->name('costing.status-project.update');
+        Route::match(['post', 'patch'], '/costing/status-project/{revisionId}', [CostingController::class, 'updateStatusProject'])->name('costing.status-project.update');
 
         // Document Receipts
         Route::get('/document-receipts', [DocumentReceiptController::class, 'index'])->name('document-receipts.index');
@@ -177,8 +178,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/tracking-documents/{revision}/add-version', [TrackingDocumentController::class, 'addVersion'])->name('tracking-documents.add-version');
         Route::delete('/tracking-documents/{revision}/delete-version', [TrackingDocumentController::class, 'deleteVersion'])->name('tracking-documents.delete-version');
         Route::post('/tracking-documents/{revision}/process-form-input', [TrackingDocumentController::class, 'processToFormInput'])->name('tracking-documents.process-form-input');
-        Route::post('/tracking-documents/{revision}/mark-cogm', [TrackingDocumentController::class, 'markCogmGenerated'])->name('tracking-documents.mark-cogm');
-        Route::post('/tracking-documents/{revision}/submit-cogm', [TrackingDocumentController::class, 'submitCogm'])->name('tracking-documents.submit-cogm');
         Route::post('/tracking-documents/{revision}/update-files', [TrackingDocumentController::class, 'updateFiles'])->name('tracking-documents.update-files');
         Route::post('/tracking-documents/{project}/update-project-info', [TrackingDocumentController::class, 'updateProjectInfo'])->name('tracking-documents.update-project-info');
         Route::delete('/tracking-documents/{project}', [TrackingDocumentController::class, 'destroyProject'])->name('tracking-documents.destroy-project');

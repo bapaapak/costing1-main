@@ -88,23 +88,16 @@
                             <line x1="16" y1="13" x2="8" y2="13"/>
                             <line x1="16" y1="17" x2="8" y2="17"/>
                         </svg>
-                        <span>Resume COGM</span>
+                        <span>COGM Resume Analysis</span>
                     </a>
                     <a href="{{ route('analisis-tren', absolute: false) }}"
-                        class="sidebar-nav-item {{ request()->routeIs('analisis-tren') ? 'active' : '' }}">
+                        class="sidebar-nav-item {{ request()->routeIs('analisis-tren') || request()->routeIs('analisis-tren.canceled') || request()->routeIs('analisis-tren.engineering') ? 'active' : '' }}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                         </svg>
-                        <span>Analisis Tren</span>
+                        <span>Document Trend Analysis</span>
                     </a>
-                    <a href="{{ route('cogm-submissions', absolute: false) }}"
-                        class="sidebar-nav-item {{ request()->routeIs('cogm-submissions') ? 'active' : '' }}">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 12l2 2 4-4"/>
-                            <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.5 0 2.91.37 4.15 1.02"/>
-                        </svg>
-                        <span>COGM Submission</span>
-                    </a>
+                    
                     <div class="sidebar-dropdown">
                         <button class="sidebar-nav-item sidebar-dropdown-toggle" onclick="toggleDropdown(this)">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
