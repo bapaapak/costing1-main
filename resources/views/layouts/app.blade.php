@@ -144,7 +144,7 @@
                                     <polyline points="14 2 14 8 20 8" />
                                     <path d="M9 15l2 2 4-4" />
                                 </svg>
-                                <span>Document Project</span>
+                                <span>Project Document</span>
                             </a>
                             <a href="{{ route('resume-cogm', absolute: false) }}"
                         class="sidebar-nav-item {{ request()->routeIs('resume-cogm') ? 'active' : '' }}">

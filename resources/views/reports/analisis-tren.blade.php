@@ -468,6 +468,144 @@
             min-width: 900px;
         }
     }
+
+    .engineering-summary-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .engineering-doc-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        overflow: hidden;
+        border-radius: 12px;
+    }
+
+    .engineering-doc-table thead th {
+        background: #f8fafc;
+        color: #475569;
+        font-size: 0.76rem;
+        font-weight: 950;
+        text-align: left;
+        padding: 0.72rem 0.78rem;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+
+    .engineering-doc-table tbody td {
+        padding: 0.72rem 0.78rem;
+        border-bottom: 1px solid #e2e8f0;
+        color: #334155;
+        font-size: 0.82rem;
+        font-weight: 800;
+        vertical-align: middle;
+    }
+
+    .engineering-doc-table tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .engineering-doc-table .progress-cell {
+        min-width: 170px;
+    }
+
+    .engineering-progress {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .engineering-progress-track {
+        height: 8px;
+        width: 92px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+    }
+
+    .engineering-progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: #10b981;
+    }
+
+    .engineering-progress-fill.warn {
+        background: #f97316;
+    }
+
+    .engineering-progress-fill.danger {
+        background: #ef4444;
+    }
+
+    .engineering-progress-number {
+        min-width: 48px;
+        font-size: 0.78rem;
+        font-weight: 950;
+        color: #334155;
+    }
+
+    .engineering-note {
+        margin-top: 0.65rem;
+        font-size: 0.78rem;
+        font-weight: 750;
+        color: #64748b;
+    }
+
+    .insight-list {
+        display: grid;
+        gap: 0.72rem;
+    }
+
+    .insight-item {
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr);
+        gap: 0.7rem;
+        align-items: start;
+        padding: 0.72rem;
+        border-radius: 14px;
+        background: #f8fafc;
+        border: 1px solid #eef2f7;
+    }
+
+    .insight-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        font-weight: 950;
+    }
+
+    .insight-icon.green { background: #dcfce7; color: #16a34a; }
+    .insight-icon.blue { background: #dbeafe; color: #2563eb; }
+    .insight-icon.orange { background: #ffedd5; color: #f97316; }
+    .insight-icon.red { background: #fee2e2; color: #ef4444; }
+
+    .insight-title {
+        font-size: 0.82rem;
+        font-weight: 950;
+        color: #0f172a;
+        margin-bottom: 0.18rem;
+    }
+
+    .insight-text {
+        font-size: 0.76rem;
+        font-weight: 750;
+        color: #64748b;
+        line-height: 1.42;
+    }
+
+    @media (max-width: 1080px) {
+        .engineering-summary-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
 </style>
 
 @php
@@ -706,62 +844,154 @@
         </div>
     </div>
 
-    <div class="trend-panel">
-        <h3 class="trend-panel-title">Ringkasan Status Project per Bulan & Business Model</h3>
+    @php
+        $a00Total = (int) ($summary->total_a00 ?? 0);
+        $a04Total = (int) ($summary->total_a04 ?? 0);
+        $a05Total = (int) ($summary->total_a05 ?? 0);
 
-        <table class="trend-table">
-            <thead>
-                <tr>
-                    <th>Business Model</th>
-                    @foreach($periods as $period)
-                        <th>{{ $period }}<br><span style="opacity:.9;">A00 / A04 / A05</span></th>
-                    @endforeach
-                    <th>Conversion Rate</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($statusByBusinessModel as $row)
-                    <tr>
-                        <td>{{ $row->business_model }}</td>
-                        @foreach($periods as $period)
-                            @php $p = $row->periods[$period] ?? (object)['a00'=>0,'a04'=>0,'a05'=>0]; @endphp
-                            <td>
-                                <span class="triplet">
-                                    <span class="a00">{{ number_format($p->a00, 0, ',', '.') }}</span>
-                                    /
-                                    <span class="a04">{{ number_format($p->a04, 0, ',', '.') }}</span>
-                                    /
-                                    <span class="a05">{{ number_format($p->a05, 0, ',', '.') }}</span>
-                                </span>
-                            </td>
-                        @endforeach
-                        <td class="text-green" style="font-weight:950;">{{ number_format($row->conversion_rate, 1, ',', '.') }}%</td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="{{ 2 + $periods->count() }}" style="text-align:center;color:#64748b;">Belum ada data project.</td>
-                    </tr>
-                @endforelse
+        /*
+         * Ringkasan Dokumen Engineering mengikuti data yang tersedia di halaman ini.
+         * Total Masuk memakai A00 sebagai baseline project masuk.
+         * Revisi dihitung dari project yang tidak lanjut / butuh perbaikan dokumen.
+         * Selesai dihitung dari project yang lanjut Die Go.
+         */
+        $engineeringRows = collect([
+            (object) [
+                'name' => 'Partlist Masuk',
+                'total_masuk' => $a00Total,
+                'revisi' => $a04Total,
+                'selesai' => $a05Total,
+                'bottleneck' => $a04Total > 0 ? 'Revisi Partlist' : '-',
+            ],
+            (object) [
+                'name' => 'Revisi Partlist',
+                'total_masuk' => $a04Total,
+                'revisi' => $a04Total,
+                'selesai' => max($a04Total - $a05Total, 0),
+                'bottleneck' => $a04Total > 0 ? 'Revisi Partlist' : '-',
+            ],
+            (object) [
+                'name' => 'UMH Masuk',
+                'total_masuk' => $a00Total,
+                'revisi' => $a04Total,
+                'selesai' => $a05Total,
+                'bottleneck' => $a04Total > 0 ? 'Revisi UMH' : '-',
+            ],
+            (object) [
+                'name' => 'Revisi UMH',
+                'total_masuk' => $a04Total,
+                'revisi' => $a04Total,
+                'selesai' => max($a04Total - $a05Total, 0),
+                'bottleneck' => $a04Total > 0 ? 'Revisi UMH' : '-',
+            ],
+        ])->map(function ($row) {
+            $row->ratio = $row->total_masuk > 0 ? ($row->selesai / $row->total_masuk) * 100 : 0;
+            $row->revisi_ratio = $row->total_masuk > 0 ? ($row->revisi / $row->total_masuk) * 100 : 0;
+            return $row;
+        });
 
-                @if($statusByBusinessModel->isNotEmpty())
-                    <tr style="background:#f8fafc;font-weight:950;">
-                        <td>Total</td>
-                        @foreach($trendByPeriod as $periodRow)
-                            <td>
-                                <span class="triplet">
-                                    <span class="a00">{{ number_format($periodRow->a00, 0, ',', '.') }}</span>
-                                    /
-                                    <span class="a04">{{ number_format($periodRow->a04, 0, ',', '.') }}</span>
-                                    /
-                                    <span class="a05">{{ number_format($periodRow->a05, 0, ',', '.') }}</span>
-                                </span>
-                            </td>
+        $lowestRatioRow = $engineeringRows->sortBy('ratio')->first();
+        $bestRatioRow = $engineeringRows->sortByDesc('ratio')->first();
+
+        $successRate = (float) ($summary->conversion_rate ?? 0);
+        $cancelRate = (float) ($summary->cancellation_rate ?? 0);
+    @endphp
+
+    <div class="engineering-summary-grid">
+        <div class="trend-panel">
+            <h3 class="trend-panel-title">Dokumen Engineering <span class="trend-info">i</span></h3>
+            <div style="color:#64748b;font-size:.78rem;font-weight:750;margin-top:-.25rem;margin-bottom:.75rem;">
+                Periode: {{ $filters['period_from'] ?? 'Semua' }} - {{ $filters['period_to'] ?? 'Semua' }}
+            </div>
+
+            <div style="overflow-x:auto;">
+                <table class="engineering-doc-table">
+                    <thead>
+                        <tr>
+                            <th>Tahap Dokumen</th>
+                            <th>Total Masuk</th>
+                            <th>Revisi</th>
+                            <th>Selesai</th>
+                            <th>Rasio Selesai</th>
+                            <th>Bottleneck</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($engineeringRows as $row)
+                            @php
+                                $progressClass = $row->ratio >= 75 ? '' : ($row->ratio >= 50 ? 'warn' : 'danger');
+                            @endphp
+                            <tr>
+                                <td>{{ $row->name }}</td>
+                                <td>{{ number_format($row->total_masuk, 0, ',', '.') }}</td>
+                                <td>{{ number_format($row->revisi, 0, ',', '.') }} ({{ number_format($row->revisi_ratio, 1, ',', '.') }}%)</td>
+                                <td>{{ number_format($row->selesai, 0, ',', '.') }} ({{ number_format($row->ratio, 1, ',', '.') }}%)</td>
+                                <td class="progress-cell">
+                                    <div class="engineering-progress">
+                                        <span class="engineering-progress-number">{{ number_format($row->ratio, 1, ',', '.') }}%</span>
+                                        <span class="engineering-progress-track">
+                                            <span class="engineering-progress-fill {{ $progressClass }}" style="width:{{ max(0, min(100, $row->ratio)) }}%;"></span>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>{{ $row->bottleneck }}</td>
+                            </tr>
                         @endforeach
-                        <td class="text-green" style="font-weight:950;">{{ number_format($summary->conversion_rate, 1, ',', '.') }}%</td>
-                    </tr>
-                @endif
-            </tbody>
-        </table>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="engineering-note">
+                Catatan: Rasio selesai dihitung dari (Selesai / Total Masuk).
+            </div>
+        </div>
+
+        <div class="trend-panel">
+            <h3 class="trend-panel-title">Insight Utama <span class="trend-info">i</span></h3>
+
+            <div class="insight-list">
+                <div class="insight-item">
+                    <div class="insight-icon green">↗</div>
+                    <div>
+                        <div class="insight-title">Peningkatan Success Rate</div>
+                        <div class="insight-text">
+                            Success rate A05 saat ini {{ number_format($successRate, 1, ',', '.') }}%.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="insight-item">
+                    <div class="insight-icon blue">▣</div>
+                    <div>
+                        <div class="insight-title">A00 Masuk Meningkat</div>
+                        <div class="insight-text">
+                            Total project A00 masuk {{ number_format($a00Total, 0, ',', '.') }} project pada periode aktif.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="insight-item">
+                    <div class="insight-icon orange">!</div>
+                    <div>
+                        <div class="insight-title">Revisi Partlist Jadi Bottleneck</div>
+                        <div class="insight-text">
+                            {{ $lowestRatioRow?->name ?? 'Dokumen' }} memiliki rasio selesai terendah
+                            ({{ number_format((float) ($lowestRatioRow->ratio ?? 0), 1, ',', '.') }}%).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="insight-item">
+                    <div class="insight-icon red">×</div>
+                    <div>
+                        <div class="insight-title">Alasan Utama Canceled</div>
+                        <div class="insight-text">
+                            Project A04 tercatat {{ number_format($a04Total, 0, ',', '.') }} project
+                            dengan cancellation rate {{ number_format($cancelRate, 1, ',', '.') }}%.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
 @endsection

@@ -1,5 +1,5 @@
 <?php
-
+use App\Http\Controllers\TubesController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CostingController;
 use App\Http\Controllers\DatabaseController;
@@ -103,8 +103,11 @@ Route::middleware('auth')->group(function () {
 
 
         // Tubes
-        Route::view('/database/tubes', 'database.tubes')->name('database.tubes');
 
+Route::get('/database/tubes', [TubesController::class, 'index'])->name('database.tubes');
+Route::post('/database/tubes', [TubesController::class, 'store'])->name('database.tubes.store');
+Route::put('/database/tubes/{tube}', [TubesController::class, 'update'])->name('database.tubes.update');
+Route::delete('/database/tubes/{tube}', [TubesController::class, 'destroy'])->name('database.tubes.destroy');
         // Customers
         Route::get('/database/customers', [DatabaseController::class, 'customers'])->name('database.customers');
         Route::post('/database/customers', [DatabaseController::class, 'storeCustomer'])->name('database.customers.store');
@@ -147,6 +150,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/form', [CostingController::class, 'form'])->name('form');
         Route::post('/costing/store', [CostingController::class, 'store'])->name('costing.store');
         Route::post('/costing/material-quick-update', [CostingController::class, 'quickUpdateMaterial'])->name('costing.material-quick-update');
+        Route::post('/costing/material-recalculate', [CostingController::class, 'recalculateMaterial'])->name('costing.material-recalculate');
         Route::get('/costing/store', function () {
             return redirect(route('form', [], false))
                 ->with('warning', 'Halaman simpan tidak bisa dibuka langsung. Silakan simpan data dari Form Costing.');

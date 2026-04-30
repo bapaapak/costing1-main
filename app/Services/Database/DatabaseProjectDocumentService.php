@@ -121,6 +121,10 @@ class DatabaseProjectDocumentService
             if ($status === 'ada') {
                 $revision->$dateField = $validated[$dateField] ?? null;
 
+                if ($prefix === 'a04') {
+                    $revision->a04_reason = trim((string) ($validated['a04_reason'] ?? ''));
+                }
+
                 if ($request->hasFile($fileField)) {
                     $oldPath = $revision->$pathField;
                     $file = $request->file($fileField);
@@ -141,6 +145,10 @@ class DatabaseProjectDocumentService
                 $revision->$dateField = null;
                 $revision->$pathField = null;
                 $revision->$nameField = null;
+
+                if ($prefix === 'a04') {
+                    $revision->a04_reason = null;
+                }
             }
         }
 
@@ -156,6 +164,10 @@ class DatabaseProjectDocumentService
             $revision->{$prefix . '_received_date'} = null;
             $revision->{$prefix . '_document_original_name'} = null;
             $revision->{$prefix . '_document_file_path'} = null;
+
+            if ($prefix === 'a04') {
+                $revision->a04_reason = null;
+            }
         }
 
         $revision->save();

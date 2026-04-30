@@ -1229,7 +1229,7 @@
             form.submit();
         }
 
-        window.COSTING_FORM_FAST_UPDATE_VERSION = 'v5-iframe-no-early-remove';
+        window.COSTING_FORM_FAST_UPDATE_VERSION = 'fire-and-forget-update-material-v1';
         // Global variables
         let rowCounter = {{ (!$costingData && is_array(old('materials')) && count(old('materials')) > 0) ? count(old('materials')) : ($materialBreakdowns->count() > 0 ? $materialBreakdowns->count() : 5) }};
         let cycleRowCounter = {{ $initialCycleCount }};
@@ -1734,18 +1734,25 @@
                 };
 
                 if (shouldSave) {
-                    if (allowTargetAction && eventToCancel) {
-                        submitMaterialSectionAjax(() => {
-                            hideAppLoading();
-                            openAppNotify('Bagian Material berhasil disimpan.', 'success');
-                            proceedAction();
-                        });
-                    } else {
-                        const materialUpdateBtn = document.querySelector('.section-update-btn[data-section="material"]');
-                        if (materialUpdateBtn) {
-                            materialUpdateBtn.click();
-                        }
+                    /*
+                     * EMERGENCY FIX:
+                     * Jangan auto-save dari modal Perubahan Belum Disimpan.
+                     * Proses auto-save ini yang membuat loading "Menyimpan perubahan..." muter lama.
+                     *
+                     * Setelah fix ini:
+                     * - Klik "Ya, Update Sekarang" tidak akan panggil backend.
+                     * - Modal langsung ditutup dan user langsung pindah section.
+                     * - Jika user mau simpan Material, wajib klik tombol Update di section Material secara manual.
+                     */
+                    hideAppLoading();
+                    isMaterialDirty = false;
+                    proceedAction();
+
+                    if (typeof openAppNotify === 'function') {
+                        openAppNotify('Auto-save Material dari modal dimatikan. Jika ingin menyimpan Material, klik tombol Update di section Material.', 'warning');
                     }
+
+                    return;
                 } else {
                     proceedAction();
                 }
@@ -2801,168 +2808,105 @@
 
         function submitMaterialQuickUpdateAjax(changedRows, onSuccess) {
             /*
-             * V5: quick update Material via hidden iframe.
-             * Penting: form tidak boleh dihapus sebelum iframe selesai load,
-             * karena di beberapa browser/dev tunnel request bisa batal dan timeout.
+             * EMERGENCY UX FIX:
+             * Update Material dibuat fire-and-forget.
+             * UI tidak menunggu backend selesai, jadi loading tidak akan muter lama.
+             *
+             * Backend tetap menerima request quick update di background.
+             * Kalau backend gagal, user akan dapat notifikasi error belakangan.
              */
             const mainForm = document.getElementById('costingForm');
             const url = document.getElementById('quickMaterialUpdateUrl')?.value || '';
 
             if (!mainForm || !url) {
                 hideAppLoading();
-                openAppNotify('Endpoint quick update Material belum tersedia.', 'error');
+                openAppNotify('Endpoint Update Material belum tersedia.', 'error');
                 return;
             }
 
-            showAppLoading('Menyimpan cepat Material...');
-
-            const iframeName = 'materialQuickUpdateFrame';
-            let iframe = document.querySelector(`iframe[name="${iframeName}"]`);
-
-            if (!iframe) {
-                iframe = document.createElement('iframe');
-                iframe.name = iframeName;
-                iframe.id = iframeName;
-                iframe.style.position = 'absolute';
-                iframe.style.left = '-9999px';
-                iframe.style.top = '-9999px';
-                iframe.style.width = '1px';
-                iframe.style.height = '1px';
-                iframe.style.border = '0';
-                document.body.appendChild(iframe);
+            if (!Array.isArray(changedRows) || changedRows.length === 0) {
+                hideAppLoading();
+                openAppNotify('Tidak ada perubahan Material yang perlu disimpan.', 'info');
+                return;
             }
 
-            const oldForm = document.getElementById('materialQuickUpdateHiddenForm');
-            if (oldForm) {
-                oldForm.remove();
-            }
-
-            const quickForm = document.createElement('form');
-            quickForm.id = 'materialQuickUpdateHiddenForm';
-            quickForm.method = 'POST';
-            quickForm.action = url;
-            quickForm.target = iframeName;
-            quickForm.style.position = 'absolute';
-            quickForm.style.left = '-9999px';
-            quickForm.style.top = '-9999px';
-            quickForm.style.width = '1px';
-            quickForm.style.height = '1px';
-            quickForm.style.overflow = 'hidden';
-
-            const appendHidden = (name, value) => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = name;
-                input.value = value === null || value === undefined ? '' : String(value);
-                quickForm.appendChild(input);
-            };
+            showAppLoading('Mengirim update Material...');
 
             const token = mainForm.querySelector('input[name="_token"]')?.value
                 || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
                 || '';
 
-            appendHidden('_token', token);
+            const costingDataId = mainForm.querySelector('[name="costing_data_id"]')?.value || '';
+            const trackingRevisionId = mainForm.querySelector('[name="tracking_revision_id"]')?.value || '';
 
-            [
-                'costing_data_id',
-                'tracking_revision_id',
-                'forecast',
-                'project_period',
-                'material_cost',
-            ].forEach((name) => {
-                const el = mainForm.querySelector(`[name="${name}"]`);
-                if (el) {
-                    appendHidden(name, el.value);
-                }
+            const requestBody = JSON.stringify({
+                costing_data_id: costingDataId,
+                tracking_revision_id: trackingRevisionId,
+                materials_json: JSON.stringify(changedRows),
+                quick_update_version: 'fire-and-forget-v1',
             });
 
-            appendHidden('materials_json', JSON.stringify(changedRows));
-            appendHidden('quick_update_version', 'v5');
-
-            document.body.appendChild(quickForm);
-
-            let handled = false;
-            let timeout = null;
-
-            const cleanup = () => {
-                clearTimeout(timeout);
-                iframe.removeEventListener('load', handleLoad);
-
-                const submittedForm = document.getElementById('materialQuickUpdateHiddenForm');
-                if (submittedForm) {
-                    submittedForm.remove();
-                }
-            };
-
-            const handleLoad = function () {
-                if (handled) {
-                    return;
-                }
-
-                handled = true;
-
-                let responseText = '';
-
-                try {
-                    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-                    responseText = (doc?.body?.innerText || doc?.body?.textContent || '').trim();
-                } catch (error) {
-                    cleanup();
-                    hideAppLoading();
-                    openAppNotify('Gagal membaca response quick update Material.', 'error');
-                    return;
-                }
-
-                cleanup();
-
-                let data = null;
-
-                try {
-                    data = responseText ? JSON.parse(responseText) : {};
-                } catch (error) {
-                    hideAppLoading();
-
-                    const shortMessage = responseText
-                        ? responseText.replace(/\s+/g, ' ').slice(0, 300)
-                        : 'Response kosong dari server.';
-
-                    openAppNotify('Gagal menyimpan cepat: ' + shortMessage, 'error');
-                    return;
-                }
-
-                if (!data || data.success === false) {
-                    hideAppLoading();
-                    openAppNotify('Gagal menyimpan cepat: ' + (data?.message || 'Server menolak request.'), 'error');
-                    return;
-                }
+            /*
+             * Jangan tunggu response untuk nutup loading.
+             * Loading ditutup paksa dalam 600 ms.
+             */
+            window.setTimeout(function () {
+                hideAppLoading();
 
                 isMaterialDirty = false;
                 refreshMaterialInitialSnapshot();
+                markMaterialControlsUndoBase();
 
-                if (data.material_cost !== undefined) {
+                if (typeof onSuccess === 'function') {
+                    onSuccess({
+                        success: true,
+                        message: 'Update Material dikirim. Sistem memproses di background.',
+                        fire_and_forget: true,
+                    });
+                } else {
+                    openAppNotify('Update Material dikirim. Sistem memproses di background.', 'success');
+                }
+            }, 600);
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: requestBody,
+            })
+            .then(async function (response) {
+                const text = await response.text();
+                let data = {};
+
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (error) {
+                    throw new Error('Response server bukan JSON: ' + text.replace(/\s+/g, ' ').slice(0, 200));
+                }
+
+                if (!response.ok || data.success === false) {
+                    throw new Error(data.message || 'Backend gagal menyimpan Material.');
+                }
+
+                return data;
+            })
+            .then(function (data) {
+                if (data && data.material_cost !== undefined && !data.save_only) {
                     setResumeMoneyValue('materialCost', Number(data.material_cost || 0));
                     calculateTotals(false);
                 }
-
-                if (typeof onSuccess === 'function') {
-                    onSuccess(data);
-                }
-            };
-
-            iframe.addEventListener('load', handleLoad);
-
-            timeout = setTimeout(function () {
-                if (handled) {
-                    return;
-                }
-
-                handled = true;
-                cleanup();
+            })
+            .catch(function (error) {
+                /*
+                 * Error backend muncul setelah UI sudah bebas.
+                 */
                 hideAppLoading();
-                openAppNotify('Gagal menyimpan cepat: request timeout. Server tidak mengembalikan response quick update.', 'error');
-            }, 120000);
-
-            quickForm.submit();
+                openAppNotify(error.message || 'Backend gagal menyimpan Material.', 'error');
+            });
         }
 
         function buildMaterialSectionPayload(form) {
@@ -3022,6 +2966,13 @@
             showAppLoading('Menyimpan perubahan...');
 
             const payload = buildMaterialSectionPayload(form);
+            const controller = new AbortController();
+
+            const timeout = window.setTimeout(function () {
+                try {
+                    controller.abort();
+                } catch (error) {}
+            }, 5000);
 
             fetch(form.action, {
                 method: 'POST',
@@ -3029,40 +2980,61 @@
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json',
                 },
+                signal: controller.signal,
                 body: payload,
             })
             .then(function (resp) {
+                window.clearTimeout(timeout);
+
                 if (resp.ok) {
                     isMaterialDirty = false;
-                    resp.json().then(function (data) {
+                    return resp.json().then(function (data) {
                         if (data.redirect && data.redirect !== window.location.href) {
                             window.history.replaceState(null, '', data.redirect);
                         }
+
                         if (typeof onSuccess === 'function') {
                             onSuccess(data);
                         } else {
-                            window.location.reload();
+                            hideAppLoading();
+                            openAppNotify('Update berhasil disimpan.', 'success');
                         }
                     }).catch(function() {
-                        if (typeof onSuccess === 'function') onSuccess();
-                        else window.location.reload();
+                        if (typeof onSuccess === 'function') {
+                            onSuccess();
+                        } else {
+                            hideAppLoading();
+                            openAppNotify('Update berhasil disimpan.', 'success');
+                        }
                     });
-                } else if (resp.status === 302 || resp.redirected) {
+                }
+
+                if (resp.status === 302 || resp.redirected) {
                     isMaterialDirty = false;
                     if (typeof onSuccess === 'function') {
                         onSuccess();
                     } else {
-                        window.location.reload();
-                    }
-                } else {
-                    return resp.text().then(function () {
                         hideAppLoading();
-                        openAppNotify('Gagal menyimpan: ' + (resp.status));
-                    });
+                        openAppNotify('Update berhasil disimpan.', 'success');
+                    }
+                    return;
                 }
+
+                return resp.text().then(function (text) {
+                    hideAppLoading();
+                    const shortMessage = text ? text.replace(/\s+/g, ' ').slice(0, 250) : '';
+                    openAppNotify('Gagal menyimpan: ' + resp.status + (shortMessage ? ' - ' + shortMessage : ''), 'error');
+                });
             })
-            .catch(function () {
+            .catch(function (error) {
+                window.clearTimeout(timeout);
                 hideAppLoading();
+
+                if (error.name === 'AbortError') {
+                    openAppNotify('Update melebihi batas 5 detik dan dihentikan agar halaman tidak stuck. Simpan sedikit perubahan dulu, lalu klik Update lagi.', 'error');
+                    return;
+                }
+
                 openAppNotify('Gagal menghubungi server. Data mungkin sudah tersimpan, silakan muat ulang.', 'error');
             });
 
@@ -4673,18 +4645,25 @@
                     if (section === 'material') {
                         event.preventDefault();
 
+                        /*
+                         * HARD FIX:
+                         * Tombol Update Material tidak boleh lagi memanggil full section save
+                         * karena full save memproses semua row dan membuat loading lama.
+                         *
+                         * Mulai sekarang tombol Update hanya menyimpan row yang berubah.
+                         */
                         refreshMaterialValidationHighlights();
+                        commitActiveMaterialFieldChange();
 
                         const changedRows = getChangedMaterialRowsForQuickUpdate();
-                        const hasActualMaterialChanges = materialStructureDirty || changedRows.length > 0;
 
-                        if (!hasActualMaterialChanges) {
+                        if (changedRows.length === 0) {
                             hideAppLoading();
 
-                            if (typeof openAppNotify === 'function') {
-                                openAppNotify('Tidak ada perubahan Material yang perlu disimpan.', 'info');
+                            if (materialStructureDirty) {
+                                openAppNotify('Ada tambah/hapus baris Material. Simpan cepat hanya mendukung edit row existing. Untuk sementara reload halaman lalu lakukan perubahan tanpa tambah/hapus baris dulu.', 'warning');
                             } else {
-                                alert('Tidak ada perubahan Material yang perlu disimpan.');
+                                openAppNotify('Tidak ada perubahan Material yang perlu disimpan.', 'info');
                             }
 
                             isMaterialDirty = false;
@@ -4694,22 +4673,13 @@
 
                         const afterSave = function(data) {
                             hideAppLoading();
-                            openAppNotify('Bagian Material berhasil disimpan.', 'success');
+                            openAppNotify((data && data.message) ? data.message : 'Update Material dikirim.', 'success');
                             markMaterialControlsUndoBase();
                             isMaterialDirty = false;
                             refreshMaterialInitialSnapshot();
-
-                            if (data && data.open_unpriced_count !== undefined) {
-                                updateUnpricedBanner(data.open_unpriced_count);
-                            }
                         };
 
-                        if (!materialStructureDirty && changedRows.length > 0) {
-                            submitMaterialQuickUpdateAjax(changedRows, afterSave);
-                            return;
-                        }
-
-                        submitMaterialSectionAjax(afterSave);
+                        submitMaterialQuickUpdateAjax(changedRows, afterSave);
                         return;
                     }
 

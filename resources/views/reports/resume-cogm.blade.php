@@ -1186,16 +1186,35 @@
                                                 Full Price
                                             </span>
                                         @else
-                                            @if($c->missing_part_count > 0)
-                                                <span class="note-badge missing">
-                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
-                                                        <circle cx="12" cy="12" r="10" />
-                                                        <path d="M12 8v5" />
-                                                        <path d="M12 16h.01" />
-                                                    </svg>
-                                                    {{ $c->missing_part_count }} part belum ada harga
-                                                </span>
-                                            @endif
+                                            @php
+                                            $priceNotes = collect();
+
+                                            if (($project->missing_part_count ?? 0) > 0) {
+                                                $priceNotes->push(number_format($project->missing_part_count, 0, ',', '.') . ' part belum ada harga');
+                                            }
+
+                                            if (($project->estimate_part_count ?? 0) > 0) {
+                                                $priceNotes->push(number_format($project->estimate_part_count, 0, ',', '.') . ' part masih estimate');
+                                            }
+
+                                            if ($project->cycle_time_incomplete ?? false) {
+                                                $priceNotes->push('Cycle time belum lengkap');
+                                            }
+
+                                            if ($project->tooling_depreciation_incomplete ?? false) {
+                                                $priceNotes->push('Depresiasi tooling cost belum lengkap');
+                                            }
+                                        @endphp
+
+                                        @if($priceNotes->isEmpty())
+                                            <span class="price-status-badge full">Full Price</span>
+                                        @else
+                                            <div class="price-status-notes">
+                                                @foreach($priceNotes as $note)
+                                                    <div>- {{ $note }}</div>
+                                                @endforeach
+                                            </div>
+                                        @endif
 
                                             @if($c->estimate_part_count > 0)
                                                 <span class="note-badge estimate">
