@@ -26,6 +26,49 @@
     </style>
     <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}">
     <style>
+        .project-selection-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            height: 38px;
+            padding: 0 0.85rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            background: rgba(255, 255, 255, 0.13);
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.78rem;
+            font-weight: 850;
+            white-space: nowrap;
+            backdrop-filter: blur(10px);
+            transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+        }
+
+        .project-selection-button:hover {
+            background: rgba(255, 255, 255, 0.22);
+            border-color: rgba(255, 255, 255, 0.38);
+            transform: translateY(-1px);
+        }
+
+        .project-selection-button svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 920px) {
+            .project-selection-button span {
+                display: none;
+            }
+
+            .project-selection-button {
+                width: 38px;
+                padding: 0;
+            }
+        }
+    </style>
+    <style>
         /* Fix Database submenu item clipping when menu is long */
         .sidebar-dropdown.open .sidebar-submenu {
             max-height: 1200px !important;
@@ -174,6 +217,18 @@
                                     <span>Wire</span>
                                 </a>
                             @endif
+                            <a href="{{ route('database.tubes', absolute: false) }}"
+                                class="sidebar-nav-item sidebar-submenu-item {{ request()->routeIs('database.tubes') ? 'active' : '' }}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M7 4h10" />
+                                    <path d="M7 20h10" />
+                                    <path d="M9 4v16" />
+                                    <path d="M15 4v16" />
+                                    <path d="M9 9h6" />
+                                    <path d="M9 15h6" />
+                                </svg>
+                                <span>Tubes</span>
+                            </a>
 <a href="{{ route('database.customers', absolute: false) }}"
                                 class="sidebar-nav-item sidebar-submenu-item {{ request()->routeIs('database.customers') ? 'active' : '' }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -470,6 +525,15 @@
                     </div>
                     <div class="header-right">
                         @yield('header-filters')
+                        <a href="{{ route('project-selection', absolute: false) }}" class="project-selection-button" title="Kembali ke Pilih Menu Utama">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15">
+                                <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                                <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                                <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                                <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                            </svg>
+                            <span>Menu Utama</span>
+                        </a>
                         @include('partials.top-notification-bell')
                         <nav class="nav-tabs">
                             <a href="{{ route('dashboard', absolute: false) }}"

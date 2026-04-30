@@ -13,10 +13,20 @@ class AuthController extends Controller
     public function showLogin()
     {
         if (Auth::check()) {
-            return redirect()->route('dashboard');
+            return redirect()->route('project-selection');
         }
 
         return view('auth.login');
+    }
+
+    public function projectSelection()
+    {
+        return view('auth.project-selection');
+    }
+
+    public function productPerformance()
+    {
+        return view('auth.costing-product-performance');
     }
 
     public function login(Request $request)
@@ -29,7 +39,7 @@ class AuthController extends Controller
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
 
-            return redirect()->intended(route('dashboard'));
+            return redirect()->route('project-selection');
         }
 
         return back()->withErrors([

@@ -8,9 +8,96 @@
 @endsection
 
 @section('header-filters')
-    <div class="header-filter">
-        <label>Periode:</label>
-        <select id="periodFilter" onchange="applyFilters()">
+@endsection
+
+@section('content')
+    <style>
+        .dashboard-filter-card {
+            background: #ffffff;
+            border: 1px solid #dbe4f2;
+            border-radius: 16px;
+            box-shadow: 0 16px 34px rgba(15, 23, 42, 0.06);
+            padding: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .dashboard-filter-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+            gap: 0.75rem;
+            align-items: end;
+        }
+
+        .dashboard-filter-field label {
+            display: block;
+            color: #64748b;
+            font-size: 0.68rem;
+            font-weight: 850;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 0.35rem;
+        }
+
+        .dashboard-filter-input {
+            width: 100%;
+            border: 1px solid #cfe0f5;
+            border-radius: 10px;
+            padding: 0.62rem 0.72rem;
+            font-size: 0.80rem;
+            font-weight: 750;
+            color: #0f172a;
+            background: #ffffff;
+            outline: none;
+            height: 39px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .dashboard-filter-input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
+        .dashboard-filter-btn {
+            height: 39px;
+            border: 0;
+            border-radius: 10px;
+            padding: 0 1rem;
+            background: #2563eb;
+            color: #ffffff;
+            font-size: 0.78rem;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.22);
+            white-space: nowrap;
+        }
+
+        .dashboard-filter-btn:hover {
+            background: #1d4ed8;
+        }
+
+        @media (max-width: 1180px) {
+            .dashboard-filter-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .dashboard-filter-btn {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .dashboard-filter-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+
+    <div class="dashboard-filter-card">
+        <div class="dashboard-filter-grid">
+
+    <div class="dashboard-filter-field">
+        <label>Periode</label>
+        <select id="periodFilter" class="dashboard-filter-input">
             <option value="all" {{ $period == 'all' ? 'selected' : '' }}>Semua Periode</option>
             @foreach($periods as $p)
                 @php
@@ -25,9 +112,9 @@
             @endforeach
         </select>
     </div>
-    <div class="header-filter">
-        <label>Business Category:</label>
-        <select id="businessCategoryFilter" onchange="applyFilters()">
+    <div class="dashboard-filter-field">
+        <label>Business Category</label>
+        <select id="businessCategoryFilter" class="dashboard-filter-input">
             <option value="all" {{ $businessCategoryFilter == 'all' ? 'selected' : '' }}>Semua</option>
             @foreach($businessCategories as $businessCategory)
                 <option value="{{ $businessCategory->id }}" {{ $businessCategoryFilter == $businessCategory->id ? 'selected' : '' }}>
@@ -36,166 +123,27 @@
             @endforeach
         </select>
     </div>
-    <div class="header-filter">
-        <label>Customers:</label>
-        <select id="customerFilter" onchange="applyFilters()">
+    <div class="dashboard-filter-field">
+        <label>Customers</label>
+        <select id="customerFilter" class="dashboard-filter-input">
             <option value="all" {{ $customerFilter == 'all' ? 'selected' : '' }}>Semua</option>
             @foreach($customers as $customer)
                 <option value="{{ $customer->id }}" {{ $customerFilter == $customer->id ? 'selected' : '' }}>{{ $customer->name }}</option>
             @endforeach
         </select>
     </div>
-    <div class="header-filter">
-        <label>Model:</label>
-        <select id="modelFilter" onchange="applyFilters()">
+    <div class="dashboard-filter-field">
+        <label>Model</label>
+        <select id="modelFilter" class="dashboard-filter-input">
             <option value="all" {{ $modelFilter == 'all' ? 'selected' : '' }}>Semua</option>
             @foreach($models as $model)
                 <option value="{{ $model }}" {{ $modelFilter == $model ? 'selected' : '' }}>{{ $model }}</option>
             @endforeach
         </select>
     </div>
-@endsection
-
-@section('content')
-
-<style>
-    .status-project-document-modal {
-        position: fixed;
-        inset: 0;
-        z-index: 99999;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 1.25rem;
-        background: rgba(15, 23, 42, 0.54);
-        backdrop-filter: blur(3px);
-    }
-
-    .status-project-document-modal.is-open {
-        display: flex;
-    }
-
-    .status-project-document-card {
-        width: min(520px, 100%);
-        background: #ffffff;
-        border: 1px solid #dbeafe;
-        border-radius: 18px;
-        box-shadow: 0 28px 70px rgba(15, 23, 42, 0.26);
-        overflow: hidden;
-        animation: statusDocModalIn 0.18s ease-out;
-    }
-
-    @keyframes statusDocModalIn {
-        from { opacity: 0; transform: translateY(10px) scale(0.98); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    .status-project-document-header {
-        display: flex;
-        gap: 0.8rem;
-        align-items: flex-start;
-        padding: 1.1rem 1.2rem 0.85rem;
-        border-bottom: 1px solid #e2e8f0;
-    }
-
-    .status-project-document-icon {
-        width: 42px;
-        height: 42px;
-        border-radius: 14px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 auto;
-        font-size: 0.72rem;
-        font-weight: 900;
-        color: #ffffff;
-    }
-
-    .status-project-document-icon.is-a04 {
-        background: #dc2626;
-        box-shadow: 0 12px 22px rgba(220, 38, 38, 0.28);
-    }
-
-    .status-project-document-icon.is-a05 {
-        background: #16a34a;
-        box-shadow: 0 12px 22px rgba(22, 163, 74, 0.28);
-    }
-
-    .status-project-document-title {
-        margin: 0;
-        color: #0f172a;
-        font-size: 1rem;
-        font-weight: 900;
-        line-height: 1.25;
-    }
-
-    .status-project-document-subtitle {
-        margin-top: 0.32rem;
-        color: #64748b;
-        font-size: 0.78rem;
-        font-weight: 650;
-        line-height: 1.45;
-    }
-
-    .status-project-document-body {
-        padding: 1rem 1.2rem;
-    }
-
-    .status-project-document-project {
-        display: inline-flex;
-        max-width: 100%;
-        padding: 0.42rem 0.62rem;
-        border-radius: 999px;
-        background: #eff6ff;
-        color: #1d4ed8;
-        font-size: 0.75rem;
-        font-weight: 850;
-        line-height: 1.25;
-        margin-bottom: 0.85rem;
-    }
-
-    .status-project-document-note {
-        color: #334155;
-        font-size: 0.86rem;
-        line-height: 1.55;
-        margin: 0;
-    }
-
-    .status-project-document-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.65rem;
-        padding: 0.95rem 1.2rem 1.15rem;
-        background: #f8fafc;
-        border-top: 1px solid #e2e8f0;
-    }
-
-    .status-project-document-actions .btn-secondary,
-    .status-project-document-actions .btn-primary {
-        border: 1px solid transparent;
-        border-radius: 10px;
-        padding: 0.56rem 0.9rem;
-        font-size: 0.78rem;
-        font-weight: 900;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .status-project-document-actions .btn-secondary {
-        background: #ffffff;
-        color: #334155;
-        border-color: #cbd5e1;
-    }
-
-    .status-project-document-actions .btn-primary {
-        background: #2563eb;
-        color: #ffffff;
-        box-shadow: 0 10px 20px rgba(37, 99, 235, 0.24);
-    }
-</style>
+            <button type="button" class="dashboard-filter-btn" onclick="applyFilters()">Terapkan</button>
+        </div>
+    </div>
 
     <!-- KPI Cards -->
     <div class="kpi-grid">
@@ -650,12 +598,8 @@
                                     $statusProjectBgColor = $statusProjectColors[$statusProjectDisplayValue] ?? '#2563eb';
                                 @endphp
                                 <select class="status-project-select"
-                                    onchange="submitStatusProjectChange(this)"
+                                    onchange="updateStatusProjectDropdownColor(this); saveStatusProject(this)"
                                     data-revision-id="{{ $row->trackingRevision?->id ?? '' }}"
-                                    data-previous-status="{{ $statusProjectDisplayValue }}"
-                                    data-last-saved-status="{{ $statusProjectDisplayValue }}"
-                                    data-project-label="{{ trim(($row->customer->name ?? '-') . ' - ' . ($row->model ?? '-') . ' - ' . ($row->assy_no ?? '-')) }}"
-                                    data-status-update-url="{{ $row->trackingRevision ? route('costing.status-project.update', ['revisionId' => $row->trackingRevision->id], absolute: false) : '' }}"
                                     data-status-project-color="{{ $statusProjectBgColor }}"
                                     style="border: 1px solid {{ $statusProjectBgColor }}; border-radius: 6px; padding: 0.3rem 0.5rem; font-size: 0.78rem; font-weight: 700; color: #ffffff; background: {{ $statusProjectBgColor }}; min-width: 170px;">
                                     <option value="A00" {{ $statusProjectDisplayValue === 'A00' ? 'selected' : '' }} style="background: #2563eb; color: #fff; font-weight: 700;">A00 (RFQ/RFI)</option>
@@ -780,42 +724,6 @@
 @endsection
 
 @section('scripts')
-
-<div id="statusProjectDocumentModal" class="status-project-document-modal" role="dialog" aria-modal="true" aria-labelledby="statusProjectDocumentTitle">
-    <div class="status-project-document-card">
-        <div class="status-project-document-header">
-            <div id="statusProjectDocumentIcon" class="status-project-document-icon is-a04">A04</div>
-            <div>
-                <h3 id="statusProjectDocumentTitle" class="status-project-document-title">Upload dokumen project</h3>
-                <div id="statusProjectDocumentSubtitle" class="status-project-document-subtitle">
-                    Status project berubah. Dokumen pendukung perlu diupload.
-                </div>
-            </div>
-        </div>
-
-        <div class="status-project-document-body">
-            <div id="statusProjectDocumentProject" class="status-project-document-project">-</div>
-            <p id="statusProjectDocumentNote" class="status-project-document-note">
-                Silakan buka halaman Project, lalu klik Edit Info Project untuk mengupload dokumen.
-            </p>
-        </div>
-
-        <div class="status-project-document-actions">
-            <button type="button" class="btn-secondary" onclick="closeStatusProjectDocumentModal()">Nanti saja</button>
-            <a href="{{ route('tracking-documents.index', absolute: false) }}" class="btn-primary">Buka Project</a>
-        </div>
-    </div>
-</div>
-
-
-<form id="statusProjectUpdateForm" method="POST" style="display: none;">
-    @csrf
-    @method('PATCH')
-    <input type="hidden" name="status" id="statusProjectUpdateStatus">
-</form>
-
-
-
 <script>
     const detailCostingPageSize = 10;
     let detailCostingCurrentPage = 1;
@@ -930,133 +838,36 @@
         filterDetailCostingTable(false);
     }
 
-    function submitStatusProjectChange(selectEl) {
-        if (!selectEl) {
-            return;
-        }
+    function saveStatusProject(selectEl) {
+        const revisionId = selectEl.dataset.revisionId;
+        if (!revisionId) return;
 
-        updateStatusProjectDropdownColor(selectEl);
-        showStatusProjectLoading('Membuka halaman dokumen project...');
+        const status = selectEl.value;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+            || document.querySelector('input[name="_token"]')?.value || '';
 
-        const form = document.getElementById('statusProjectUpdateForm');
-        const statusInput = document.getElementById('statusProjectUpdateStatus');
-
-        if (!form || !statusInput) {
-            alert('Form update status project tidak ditemukan.');
-            hideStatusProjectLoading();
-            return;
-        }
-
-        const updateUrl = selectEl.dataset.statusUpdateUrl || ('/costing/status-project/' + encodeURIComponent(selectEl.dataset.revisionId || ''));
-        const status = (selectEl.value || '').trim();
-
-        statusInput.value = status;
-        form.action = updateUrl;
-        form.submit();
+        selectEl.disabled = true;
+        fetch('/costing/status-project/' + revisionId, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ status: status }),
+        })
+        .then(function(res) {
+            if (!res.ok) throw new Error('Gagal menyimpan');
+            return res.json();
+        })
+        .then(function() {
+            selectEl.disabled = false;
+        })
+        .catch(function() {
+            selectEl.disabled = false;
+            alert('Gagal menyimpan status project. Silakan coba lagi.');
+        });
     }
-
-    function showStatusProjectLoading(message) {
-        let overlay = document.getElementById('statusProjectLoadingOverlay');
-
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'statusProjectLoadingOverlay';
-            overlay.style.position = 'fixed';
-            overlay.style.inset = '0';
-            overlay.style.zIndex = '100000';
-            overlay.style.background = 'rgba(15, 23, 42, 0.42)';
-            overlay.style.backdropFilter = 'blur(2px)';
-            overlay.style.display = 'flex';
-            overlay.style.alignItems = 'center';
-            overlay.style.justifyContent = 'center';
-            overlay.innerHTML = `
-                <div style="background:#fff; border-radius:16px; padding:1.35rem 1.65rem; min-width:220px; box-shadow:0 24px 60px rgba(15,23,42,.22); display:grid; justify-items:center; gap:.8rem;">
-                    <div style="width:38px; height:38px; border:4px solid #dbeafe; border-top-color:#2563eb; border-radius:999px; animation:statusProjectSpin .75s linear infinite;"></div>
-                    <div id="statusProjectLoadingText" style="font-size:.88rem; font-weight:800; color:#334155;">Memuat halaman...</div>
-                </div>
-            `;
-
-            const style = document.createElement('style');
-            style.id = 'statusProjectLoadingStyle';
-            style.textContent = '@keyframes statusProjectSpin{to{transform:rotate(360deg)}}';
-            document.head.appendChild(style);
-            document.body.appendChild(overlay);
-        }
-
-        const text = document.getElementById('statusProjectLoadingText');
-        if (text) {
-            text.textContent = message || 'Memuat halaman...';
-        }
-
-        overlay.style.display = 'flex';
-    }
-
-    function hideStatusProjectLoading() {
-        const overlay = document.getElementById('statusProjectLoadingOverlay');
-        if (overlay) {
-            overlay.style.display = 'none';
-        }
-    }
-
-    function openStatusProjectDocumentModal(status, projectLabel) {
-        const modal = document.getElementById('statusProjectDocumentModal');
-        const icon = document.getElementById('statusProjectDocumentIcon');
-        const title = document.getElementById('statusProjectDocumentTitle');
-        const subtitle = document.getElementById('statusProjectDocumentSubtitle');
-        const project = document.getElementById('statusProjectDocumentProject');
-        const note = document.getElementById('statusProjectDocumentNote');
-
-        if (!modal || !icon || !title || !subtitle || !project || !note) {
-            alert('Status project sudah tersimpan. Silakan upload dokumen ' + status + ' di halaman Project.');
-            return;
-        }
-
-        const isA04 = status === 'A04';
-        const statusLabel = isA04 ? 'A04 (Cancelled/Failed)' : 'A05 (Die Go)';
-        const documentLabel = isA04 ? 'dokumen A04' : 'dokumen A05';
-
-        icon.classList.toggle('is-a04', isA04);
-        icon.classList.toggle('is-a05', !isA04);
-        icon.textContent = isA04 ? 'A04' : 'A05';
-
-        title.textContent = 'Upload ' + documentLabel;
-        subtitle.textContent = 'Status project sudah diubah menjadi ' + statusLabel + '.';
-        project.textContent = projectLabel || '-';
-        note.textContent = 'Silakan buka halaman Project, klik Edit Info Project, lalu upload ' + documentLabel + ' agar data dokumen project lengkap.';
-
-        modal.classList.add('is-open');
-    }
-
-    function closeStatusProjectDocumentModal() {
-        const modal = document.getElementById('statusProjectDocumentModal');
-        if (modal) {
-            modal.classList.remove('is-open');
-        }
-    }
-
-    document.addEventListener('click', function(event) {
-        const modal = document.getElementById('statusProjectDocumentModal');
-        if (modal && event.target === modal) {
-            closeStatusProjectDocumentModal();
-        }
-    });
-
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            closeStatusProjectDocumentModal();
-        }
-    });
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const noticeStatus = @json(session('status_project_document_notice'));
-        const noticeProject = @json(session('status_project_document_project'));
-
-        if (noticeStatus === 'A04' || noticeStatus === 'A05') {
-            window.setTimeout(function() {
-                openStatusProjectDocumentModal(noticeStatus, noticeProject || '-');
-            }, 450);
-        }
-    });
 
     function updateStatusProjectDropdownColor(selectEl) {
         if (!selectEl) {

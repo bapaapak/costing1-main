@@ -16,6 +16,10 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // All app routes require authentication
 Route::middleware('auth')->group(function () {
 
+    Route::get('/project-selection', [AuthController::class, 'projectSelection'])->name('project-selection');
+    Route::get('/costing-product-performance', [AuthController::class, 'productPerformance'])->name('costing-product-performance');
+
+
     Route::get('/profile', function () {
         return view('profile.show');
     })->name('profile.show');
@@ -97,6 +101,9 @@ Route::middleware('auth')->group(function () {
         Route::put('/database/wires/{id}', [DatabaseController::class, 'updateWire'])->name('database.wires.update');
         Route::delete('/database/wires/{id}', [DatabaseController::class, 'destroyWire'])->name('database.wires.destroy');
 
+
+        // Tubes
+        Route::view('/database/tubes', 'database.tubes')->name('database.tubes');
 
         // Customers
         Route::get('/database/customers', [DatabaseController::class, 'customers'])->name('database.customers');
