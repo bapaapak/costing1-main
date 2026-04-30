@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AuditLog;
 use App\Models\CogmSubmission;
 use App\Models\CostingData;
 use App\Models\Customer;
@@ -750,58 +749,6 @@ class ReportController extends Controller
     }
 
     /**
-     * Product management
-     */
-    public function products()
-    {
-        $products = Product::withCount('costingData')->orderBy('name')->get();
-        return view('reports.products', compact('products'));
-    }
-
-    public function storeProduct(Request $request)
-    {
-        $request->validate(['code' => 'required|string|max:50', 'name' => 'required|string|max:150', 'line' => 'nullable|string|max:100']);
-        Product::create($request->only('code', 'name', 'line'));
-        return back()->with('success', 'Product berhasil ditambahkan.');
-    }
-
-    public function updateProduct(Request $request, $id)
-    {
-        $request->validate(['code' => 'required|string|max:50', 'name' => 'required|string|max:150', 'line' => 'nullable|string|max:100']);
-        Product::findOrFail($id)->update($request->only('code', 'name', 'line'));
-        return back()->with('success', 'Product berhasil diperbarui.');
-    }
-
-    public function destroyProduct($id)
-    {
-        Product::findOrFail($id)->delete();
-        return back()->with('success', 'Product berhasil dihapus.');
-    }
-
-    /**
-     * Material Breakdown
-     */
-    public function materialBreakdown(Request $request)
-    {
-        $search = trim($request->input('search', ''));
-        $query = MaterialBreakdown::with(['costingData.customer', 'costingData.product']);
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('part_no', 'like', "%{$search}%")
-                  ->orWhere('part_name', 'like', "%{$search}%")
-                  ->orWhere('id_code', 'like', "%{$search}%");
-            });
-        }
-
-        $breakdowns = $query->orderByDesc('id')->paginate(20)->appends($request->query());
-        $totalParts = MaterialBreakdown::count();
-        $uniqueParts = MaterialBreakdown::distinct('part_no')->count('part_no');
-
-        return view('reports.material-breakdown', compact('breakdowns', 'totalParts', 'uniqueParts', 'search'));
-    }
-
-    /**
      * COGM Submission / Approval
      */
     public function cogmSubmissions()
@@ -902,25 +849,4 @@ class ReportController extends Controller
         return view('reports.unpriced-parts', compact('parts', 'totalParts', 'resolvedParts', 'unresolvedParts'));
     }
 
-    /**
-     * Audit Trail
-     */
-    public function auditTrail(Request $request)
-    {
-        $query = AuditLog::orderByDesc('created_at');
-
-        if ($request->filled('action')) {
-            $query->where('action', $request->input('action'));
-        }
-        if ($request->filled('module')) {
-            $query->where('module', $request->input('module'));
-        }
-
-        $logs = $query->paginate(25)->appends($request->query());
-
-        $actionOptions = AuditLog::distinct()->pluck('action')->sort()->values();
-        $moduleOptions = AuditLog::distinct()->pluck('module')->sort()->values();
-
-        return view('reports.audit-trail', compact('logs', 'actionOptions', 'moduleOptions'));
-    }
 }

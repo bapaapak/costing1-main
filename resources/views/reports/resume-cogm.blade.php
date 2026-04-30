@@ -4,7 +4,7 @@
 @section('page-title', 'COGM Resume Analysis')
 
 @section('breadcrumb')
-    <a href="{{ route('dashboard', absolute: false) }}">Menu Utama</a>
+    <a href="{{ route('dashboard', absolute: false) }}">Dashboard</a>
     <span class="breadcrumb-separator">/</span>
     <span>COGM Resume Analysis</span>
 @endsection

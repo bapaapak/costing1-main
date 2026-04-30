@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Database Dokumen Project')
-@section('page-title', 'Database Dokumen Project')
+@section('title', 'Document Project')
+@section('page-title', 'Document Project')
 
 @section('breadcrumb')
-    <a href="{{ route('database.parts', absolute: false) }}">Database</a>
+    <a href="{{ route('dashboard', absolute: false) }}">Dashboard</a>
     <span class="breadcrumb-separator">/</span>
-    <span>Dokumen Project</span>
+    <span>Document Project</span>
 @endsection
 
 @section('content')
@@ -338,7 +338,7 @@
                             {{-- Aksi --}}
                             <td style="text-align: center; white-space: nowrap;">
                                 <div style="display: inline-flex; gap: 0.35rem;">
-                                    <button type="button" class="btn-action btn-edit" title="Edit Dokumen"
+                                    <button type="button" class="btn-action btn-edit js-edit-doc-btn" data-revision-id="{{ $rev->id }}" title="Edit Dokumen"
                                         onclick="openEditDocModal({{ $rev->id }}, {{ json_encode([
                                             'customer' => $costing->customer->name ?? $project->customer ?? '-',
                                             'model' => $costing->model ?? $project->model ?? '-',
@@ -395,7 +395,7 @@
     <div id="editDocModal" class="doc-modal is-hidden" onclick="if(event.target===this)closeEditDocModal()">
         <div class="doc-modal-content doc-modal-wide">
             <div class="doc-modal-header">
-                <h3 class="doc-modal-title">Edit Dokumen Project</h3>
+                <h3 class="doc-modal-title">Edit Document Project</h3>
                 <button type="button" class="doc-modal-close" onclick="closeEditDocModal()">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
@@ -403,9 +403,12 @@
             <div style="background: var(--slate-50); padding: 0.6rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.82rem; color: var(--slate-600); border: 1px solid var(--slate-200);">
                 <strong id="editDocLabel"></strong>
             </div>
-            <form id="editDocForm" method="POST" enctype="multipart/form-data" onsubmit="document.getElementById('editA00Status').disabled=false;">
+            <form id="editDocForm" method="POST" enctype="multipart/form-data" onsubmit="document.getElementById('editA00Status').disabled=false; if (shouldReturnToDashboardAfterDocumentModal) { showReturnToDashboardLoading(); }">
                 @csrf
                 @method('PUT')
+                @if(session('open_document_revision_id'))
+                    <input type="hidden" name="return_to_dashboard" value="1">
+                @endif
 
                 <div class="doc-section-grid">
                     {{-- A00 Column --}}
@@ -448,7 +451,7 @@
                             </div>
                             <div class="doc-form-group">
                                 <label>Dokumen (PDF)</label>
-                                <input type="file" name="a04_document_file" accept=".pdf" class="form-input" style="font-size:0.75rem;">
+                                <input type="file" name="a04_document_file" id="editA04File" accept=".pdf" class="form-input" style="font-size:0.75rem;">
                                 <small id="editA04DocName" style="color: var(--slate-500); font-size: 0.72rem;"></small>
                             </div>
                         </div>
@@ -471,7 +474,7 @@
                             </div>
                             <div class="doc-form-group">
                                 <label>Dokumen (PDF)</label>
-                                <input type="file" name="a05_document_file" accept=".pdf" class="form-input" style="font-size:0.75rem;">
+                                <input type="file" name="a05_document_file" id="editA05File" accept=".pdf" class="form-input" style="font-size:0.75rem;">
                                 <small id="editA05DocName" style="color: var(--slate-500); font-size: 0.72rem;"></small>
                             </div>
                         </div>
@@ -584,6 +587,41 @@
 
     function closeEditDocModal() {
         document.getElementById('editDocModal').classList.add('is-hidden');
+
+        if (shouldReturnToDashboardAfterDocumentModal) {
+            showReturnToDashboardLoading();
+            window.location.href = dashboardReturnUrl;
+        }
+    }
+
+    function showReturnToDashboardLoading() {
+        let overlay = document.getElementById('returnDashboardLoadingOverlay');
+
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'returnDashboardLoadingOverlay';
+            overlay.style.position = 'fixed';
+            overlay.style.inset = '0';
+            overlay.style.zIndex = '100000';
+            overlay.style.background = 'rgba(15, 23, 42, 0.42)';
+            overlay.style.backdropFilter = 'blur(2px)';
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.innerHTML = `
+                <div style="background:#fff; border-radius:16px; padding:1.35rem 1.65rem; min-width:220px; box-shadow:0 24px 60px rgba(15,23,42,.22); display:grid; justify-items:center; gap:.8rem;">
+                    <div style="width:38px; height:38px; border:4px solid #dbeafe; border-top-color:#2563eb; border-radius:999px; animation:returnDashboardSpin .75s linear infinite;"></div>
+                    <div style="font-size:.88rem; font-weight:800; color:#334155;">Kembali ke dashboard...</div>
+                </div>
+            `;
+
+            const style = document.createElement('style');
+            style.textContent = '@keyframes returnDashboardSpin{to{transform:rotate(360deg)}}';
+            document.head.appendChild(style);
+            document.body.appendChild(overlay);
+        }
+
+        overlay.style.display = 'flex';
     }
 
     function openDeleteDocModal(revisionId, name) {
@@ -596,6 +634,63 @@
     function closeDeleteDocModal() {
         document.getElementById('deleteDocModal').classList.add('is-hidden');
     }
+
+    const dashboardReturnUrl = @json(route('dashboard', absolute: false));
+    const shouldReturnToDashboardAfterDocumentModal = @json((bool) session('open_document_revision_id'));
+
+    function focusTargetDocumentSection(targetStatus) {
+        if (targetStatus !== 'A04' && targetStatus !== 'A05') {
+            return;
+        }
+
+        const lower = targetStatus.toLowerCase();
+        const statusSelect = document.getElementById('edit' + targetStatus + 'Status');
+        const dateInput = document.getElementById('edit' + targetStatus + 'Date');
+        const fileInput = document.getElementById('edit' + targetStatus + 'File');
+        const dateWrap = document.getElementById('edit' + targetStatus + 'DateWrap');
+
+        if (statusSelect) {
+            statusSelect.value = 'ada';
+            toggleEditDateWrap(lower);
+        }
+
+        if (dateInput && !dateInput.value) {
+            dateInput.value = new Date().toISOString().slice(0, 10);
+        }
+
+        if (dateWrap) {
+            dateWrap.style.display = '';
+            dateWrap.style.border = '2px solid ' + (targetStatus === 'A04' ? '#fca5a5' : '#86efac');
+            dateWrap.style.borderRadius = '12px';
+            dateWrap.style.padding = '0.55rem';
+            dateWrap.style.background = targetStatus === 'A04' ? '#fff7f7' : '#f0fdf4';
+        }
+
+        window.setTimeout(function () {
+            if (fileInput) {
+                fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                fileInput.focus();
+            }
+        }, 250);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const openRevisionId = @json(session('open_document_revision_id'));
+        const targetStatus = @json(session('open_document_target_status'));
+
+        if (!openRevisionId) {
+            return;
+        }
+
+        const editButton = document.querySelector('.js-edit-doc-btn[data-revision-id="' + openRevisionId + '"]');
+
+        if (editButton) {
+            editButton.click();
+            window.setTimeout(function () {
+                focusTargetDocumentSection(targetStatus);
+            }, 250);
+        }
+    });
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {

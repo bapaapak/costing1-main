@@ -26,6 +26,7 @@ use App\Services\Costing\MissingProjectInformationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -4214,18 +4215,52 @@ class CostingController extends Controller
         return in_array(strtoupper(trim($code)), $this->materialMetaSkipCodes(), true);
     }
 
-    public function updateStatusProject(UpdateStatusProjectRequest $request, $revisionId)
+    public function updateStatusProject(Request $request, $revisionId)
     {
+        $validated = $request->validate([
+            'status' => ['required', 'in:A00,A04,A05'],
+        ]);
 
-        $revision = DocumentRevision::findOrFail($revisionId);
-        $status = $request->input('status');
+        $revision = DocumentRevision::with('project')->findOrFail($revisionId);
+        $status = (string) $validated['status'];
 
-        // Business rule: A04 and A05 are mutually exclusive; A00 must always be ada
-        $revision->a00 = 'ada';
-        $revision->a04 = ($status === 'A04') ? 'ada' : 'belum_ada';
-        $revision->a05 = ($status === 'A05') ? 'ada' : 'belum_ada';
-        $revision->save();
+        /*
+         * Business rule:
+         * - A00 selalu "ada" sebagai baseline.
+         * - A04 dan A05 saling exclusive.
+         */
+        $revision->forceFill([
+            'a00' => 'ada',
+            'a04' => $status === 'A04' ? 'ada' : 'belum_ada',
+            'a05' => $status === 'A05' ? 'ada' : 'belum_ada',
+        ])->save();
 
-        return response()->json(['success' => true, 'status' => $status]);
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'status' => $status,
+                'revision_id' => $revision->id,
+                'a00' => $revision->a00,
+                'a04' => $revision->a04,
+                'a05' => $revision->a05,
+            ]);
+        }
+
+        $projectLabel = trim(implode(' - ', array_filter([
+            $revision->project?->customer,
+            $revision->project?->model,
+            $revision->project?->part_number,
+        ]))) ?: '-';
+
+        $redirect = Route::has('database.project-documents')
+            ? redirect()->route('database.project-documents')
+            : redirect()->back();
+
+        return $redirect
+            ->with('success', 'Status project berhasil diperbarui. Silakan upload dokumen ' . $status . '.')
+            ->with('open_document_revision_id', $revision->id)
+            ->with('open_document_target_status', in_array($status, ['A04', 'A05'], true) ? $status : null)
+            ->with('status_project_document_project', $projectLabel);
     }
+
 }

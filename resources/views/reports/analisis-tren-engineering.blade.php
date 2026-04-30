@@ -14,9 +14,9 @@
         ], fn ($value) => filled($value));
     @endphp
 
-    <a href="{{ route('dashboard', absolute: false) }}">Menu Utama</a>
+    <a href="{{ route('dashboard', absolute: false) }}">Dashboard</a>
     <span class="breadcrumb-separator">/</span>
-    <a href="{{ route('analisis-tren', $backToTrendQuery, false) }}" style="color:#2563eb;font-weight:750;text-decoration:none;">Document Trend Analysis</a>
+    <a href="{{ route('analisis-tren', $backToTrendQuery, false) }}" style="color:#2563eb;font-weight:500;text-decoration:none;">Document Trend Analysis</a>
     <span class="breadcrumb-separator">/</span>
     <span>Detail Dokumen Engineering</span>
 @endsection

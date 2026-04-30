@@ -3,12 +3,14 @@
 namespace App\Services\TrackingDocument;
 
 use App\Models\BusinessCategory;
+use App\Models\CostingData;
 use App\Models\Customer;
 use App\Models\DocumentProject;
 use App\Models\DocumentRevision;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class TrackingDocumentProjectService
@@ -210,6 +212,37 @@ class TrackingDocumentProjectService
                 'a05_document_original_name' => $a05['name'],
                 'a05_document_file_path' => $a05['path'],
             ]);
+
+            /*
+             * Sinkronkan informasi project di modal Project ke data Form Costing.
+             * Jadi setelah field Quantity / Plant / Periode di Form Costing berubah,
+             * modal Edit Project membaca nilai yang sama, dan jika modal disimpan
+             * nilainya juga ikut diperbarui ke CostingData.
+             */
+            $costingData = CostingData::query()
+                ->where('tracking_revision_id', $latestRevision->id)
+                ->latest('id')
+                ->first();
+
+            if ($costingData) {
+                $costingColumns = array_fill_keys(Schema::getColumnListing('costing_data'), true);
+
+                $costingPayload = [
+                    'product_id' => $resolvedProduct->id,
+                    'customer_id' => (int) $validated['customer_id'],
+                    'model' => $normalizedModel,
+                    'assy_no' => $normalizedPartNumber,
+                    'assy_name' => $normalizedPartName,
+                    'forecast' => $this->parseNumericInput($validated['forecast'] ?? $costingData->forecast ?? 0),
+                    'forecast_uom' => $validated['forecast_uom'] ?? $costingData->forecast_uom ?? 'PCE',
+                    'forecast_basis' => $validated['forecast_basis'] ?? $costingData->forecast_basis ?? 'per_month',
+                    'project_period' => $this->parseNumericInput($validated['project_period'] ?? $costingData->project_period ?? 0),
+                    'line' => $validated['line'] ?? $costingData->line ?? null,
+                    'period' => $validated['period'] ?? $costingData->period ?? null,
+                ];
+
+                $costingData->update(array_intersect_key($costingPayload, $costingColumns));
+            }
         });
 
         return ['updated' => true];
@@ -262,6 +295,31 @@ class TrackingDocumentProjectService
         }
 
         return ['status' => 'ada', 'path' => $path, 'name' => $name];
+    }
+
+    private function parseNumericInput($value): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        $value = trim((string) $value);
+        $value = str_replace(['Rp', 'rp', 'IDR', 'idr', ' '], '', $value);
+
+        if (str_contains($value, ',') && str_contains($value, '.')) {
+            $value = str_replace('.', '', $value);
+            $value = str_replace(',', '.', $value);
+        } elseif (str_contains($value, ',')) {
+            $value = str_replace(',', '.', $value);
+        } else {
+            $value = str_replace(',', '', $value);
+        }
+
+        return is_numeric($value) ? (float) $value : 0.0;
     }
 
     private function makeProjectKey(string $customer, string $model, string $partNumber, string $partName): string

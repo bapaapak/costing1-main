@@ -8,7 +8,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class TrackingDocumentFileService
 {
@@ -122,7 +122,7 @@ class TrackingDocumentFileService
         }
     }
 
-    public function downloadRevisionFile(DocumentRevision $revision, string $type): BinaryFileResponse
+    public function downloadRevisionFile(DocumentRevision $revision, string $type): Response
     {
         $config = $this->getConfig($type);
         $path = $revision->{$config['path']};
@@ -135,7 +135,7 @@ class TrackingDocumentFileService
         return Storage::download($path, $name);
     }
 
-    public function inlineRevisionFile(DocumentRevision $revision, string $type): BinaryFileResponse
+    public function inlineRevisionFile(DocumentRevision $revision, string $type): Response
     {
         $config = $this->getConfig($type);
         $path = $revision->{$config['path']};

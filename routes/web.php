@@ -55,7 +55,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/analisis-tren/canceled-failed', [ReportController::class, 'analisisTrenCanceled'])->name('analisis-tren.canceled');
         Route::get('/analisis-tren/detail-dokumen-engineering', [ReportController::class, 'analisisTrenEngineering'])->name('analisis-tren.engineering');
         Route::get('/laporan', [ReportController::class, 'laporan'])->name('laporan');
-        Route::get('/audit-trail', [ReportController::class, 'auditTrail'])->name('audit-trail');
     });
 
     // ── DATABASE ──────────────────────────────────────────────────────────────
@@ -65,14 +64,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/database/rate-kurs', [ReportController::class, 'storeExchangeRate'])->name('rate-kurs.store');
         Route::delete('/database/rate-kurs/{id}', [ReportController::class, 'destroyExchangeRate'])->name('rate-kurs.destroy');
 
-        // Products (manage)
-        Route::get('/database/products-manage', [ReportController::class, 'products'])->name('products.index');
-        Route::post('/database/products-manage', [ReportController::class, 'storeProduct'])->name('products.store');
-        Route::put('/database/products-manage/{id}', [ReportController::class, 'updateProduct'])->name('products.update');
-        Route::delete('/database/products-manage/{id}', [ReportController::class, 'destroyProduct'])->name('products.destroy');
 
-        // Material & Unpriced
-        Route::get('/database/material-breakdown', [ReportController::class, 'materialBreakdown'])->name('material-breakdown');
+        // Unpriced
+
         Route::get('/database/unpriced-parts', [ReportController::class, 'unpricedParts'])->name('unpriced-parts');
 
         // Database index & products list
@@ -103,12 +97,6 @@ Route::middleware('auth')->group(function () {
         Route::put('/database/wires/{id}', [DatabaseController::class, 'updateWire'])->name('database.wires.update');
         Route::delete('/database/wires/{id}', [DatabaseController::class, 'destroyWire'])->name('database.wires.destroy');
 
-        // Costing DB
-        Route::get('/database/costing', [DatabaseController::class, 'costing'])->name('database.costing');
-        Route::delete('/database/costing/{id}', [DatabaseController::class, 'destroyCosting'])->name('database.costing.destroy');
-
-        // Material Cost
-        Route::get('/database/material-cost', [DatabaseController::class, 'materialCost'])->name('database.material-cost');
 
         // Customers
         Route::get('/database/customers', [DatabaseController::class, 'customers'])->name('database.customers');

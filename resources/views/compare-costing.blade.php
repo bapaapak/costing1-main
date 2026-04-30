@@ -4,6 +4,8 @@
 @section('page-title', 'Compare Costing Assy')
 
 @section('breadcrumb')
+    <a href="{{ route('dashboard', absolute: false) }}">Dashboard</a>
+    <span class="breadcrumb-separator">/</span>
     <span>Compare Costing</span>
 @endsection
 
@@ -16,58 +18,64 @@
             width: 100%;
             max-width: none;
             background: #ffffff;
-            border: 1px solid #bfdbfe;
-            border-radius: 10px;
-            padding: 0.65rem;
-            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+            border: 1px solid #dbe4f2;
+            border-radius: 16px;
+            padding: 1rem;
+            box-shadow: 0 16px 34px rgba(15, 23, 42, 0.06);
         }
 
         .compare-filter-table {
-            border-collapse: collapse;
-            border-spacing: 0;
+            border-collapse: separate;
+            border-spacing: 0.75rem 0.55rem;
             width: 100%;
             table-layout: fixed;
+            margin: -0.55rem -0.75rem;
         }
 
         .compare-filter-table th,
         .compare-filter-table td {
-            border: 1px solid #bfdbfe;
-            padding: 0.12rem;
+            border: 0;
+            padding: 0;
             vertical-align: middle;
+            background: transparent;
         }
 
         .compare-filter-label {
-            background: linear-gradient(135deg, var(--blue-600) 0%, var(--blue-700) 100%);
-            color: #fff;
-            font-size: 0.86rem;
-            letter-spacing: 0.02em;
-            font-weight: 700;
-            text-align: center;
+            background: transparent;
+            color: #64748b;
+            font-size: 0.68rem;
+            letter-spacing: 0.04em;
+            font-weight: 850;
+            text-transform: uppercase;
+            text-align: left;
             white-space: nowrap;
+            padding: 0 0.15rem;
         }
 
         .compare-filter-table td {
-            background: #f8fbff;
+            background: transparent;
         }
 
         .compare-filter-input {
             min-width: 0;
             width: 100%;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            padding: 0.33rem 0.52rem;
-            font-size: 0.92rem;
+            border: 1px solid #cfe0f5;
+            border-radius: 10px;
+            padding: 0.62rem 0.72rem;
+            font-size: 0.80rem;
             line-height: 1.2;
             color: #0f172a;
             background: #ffffff;
             outline: none;
-            height: 36px;
-            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            height: 39px;
+            font-weight: 750;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
 
         .compare-filter-input:focus {
             border-color: #60a5fa;
-            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.16);
+            background: #ffffff;
         }
 
         .compare-filter-input option {
@@ -76,7 +84,7 @@
         }
 
         .compare-filter-actions {
-            margin-top: 0.4rem;
+            margin-top: 0.85rem;
             display: flex;
             gap: 0.5rem;
             align-items: center;
@@ -85,11 +93,20 @@
         }
 
         .compare-filter-actions .btn {
-            padding: 0.52rem 1.15rem;
-            font-size: 0.86rem;
+            height: 39px;
+            padding: 0 1rem;
+            font-size: 0.78rem;
             line-height: 1.1;
-            border-radius: 8px;
-            box-shadow: 0 3px 8px rgba(37, 99, 235, 0.25);
+            border-radius: 10px;
+            font-weight: 900;
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
+        }
+
+        .compare-filter-actions .btn-secondary {
+            background: #f8fafc;
+            border: 1px solid #cfe0f5;
+            color: #334155;
+            box-shadow: none;
         }
 
         .material-compare-table {

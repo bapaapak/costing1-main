@@ -662,11 +662,7 @@
                         @forelse ($projects as $project)
                             @php
                                 $latestRevision = $project->revisions->first();
-                                $latestMarketingSubmission = $project->revisions
-                                    ->flatMap(fn ($item) => $item->cogmSubmissions)
-                                    ->sortByDesc('submitted_at')
-                                    ->first();
-                                $displayPicMarketing = $latestRevision?->pic_marketing ?: ($latestMarketingSubmission?->pic_marketing ?? null);
+                                $displayPicMarketing = $latestRevision?->pic_marketing ?: null;
 
                                 /*
                                  * Display status di halaman Project dibuat dari kondisi aktual costing:
@@ -689,7 +685,7 @@
                                 if ($latestCostingData) {
                                     $materialRows = \App\Models\MaterialBreakdown::query()
                                         ->where('costing_data_id', $latestCostingData->id)
-                                        ->get(['amount1', 'unit_price_basis', 'cn_type']);
+                                        ->get(['part_no', 'amount1', 'unit_price_basis', 'cn_type']);
 
                                     $rawCycleTimes = $latestCostingData->cycle_times ?? [];
                                     if (is_string($rawCycleTimes)) {
@@ -718,13 +714,43 @@
                                 $hasMaterialData = $materialRows->isNotEmpty();
                                 $hasCycleTimeData = count($cycleTimes) > 0;
 
-                                $hasMissingMaterialPrice = $hasMaterialData && $materialRows->contains(function ($row) {
-                                    return (float) ($row->amount1 ?? 0) <= 0;
-                                });
+                                $missingMaterialPriceCount = 0;
+                                if ($hasMaterialData) {
+                                    $missingMaterialPriceParts = $materialRows
+                                        ->filter(function ($row) {
+                                            return (float) ($row->amount1 ?? 0) <= 0;
+                                        })
+                                        ->map(function ($row, $index) {
+                                            $partNo = trim((string) ($row->part_no ?? ''));
 
-                                $hasEstimateMaterialPrice = $hasMaterialData && $materialRows->contains(function ($row) {
-                                    return strtoupper(trim((string) ($row->cn_type ?? ''))) === 'E';
-                                });
+                                            return $partNo !== '' ? strtoupper($partNo) : ('ROW-' . ($index + 1));
+                                        })
+                                        ->unique()
+                                        ->values();
+
+                                    $missingMaterialPriceCount = $missingMaterialPriceParts->count();
+                                }
+
+                                $hasMissingMaterialPrice = $missingMaterialPriceCount > 0;
+
+                                $estimateMaterialPriceCount = 0;
+                                if ($hasMaterialData) {
+                                    $estimateMaterialPriceParts = $materialRows
+                                        ->filter(function ($row) {
+                                            return strtoupper(trim((string) ($row->cn_type ?? ''))) === 'E';
+                                        })
+                                        ->map(function ($row, $index) {
+                                            $partNo = trim((string) ($row->part_no ?? ''));
+
+                                            return $partNo !== '' ? strtoupper($partNo) : ('ROW-' . ($index + 1));
+                                        })
+                                        ->unique()
+                                        ->values();
+
+                                    $estimateMaterialPriceCount = $estimateMaterialPriceParts->count();
+                                }
+
+                                $hasEstimateMaterialPrice = $estimateMaterialPriceCount > 0;
 
                                 $processCostIsEmpty = $latestCostingData
                                     ? (float) ($latestCostingData->labor_cost ?? 0) <= 0
@@ -737,14 +763,14 @@
                                     if ($hasMissingMaterialPrice) {
                                         $statusNotes[] = [
                                             'type' => 'danger',
-                                            'label' => 'Material belum ada harga',
+                                            'label' => $missingMaterialPriceCount . ' part belum ada harga',
                                         ];
                                     }
 
                                     if ($hasEstimateMaterialPrice) {
                                         $statusNotes[] = [
                                             'type' => 'warning',
-                                            'label' => 'Ada harga estimate',
+                                            'label' => $estimateMaterialPriceCount . ' part masih estimate',
                                         ];
                                     }
 
@@ -755,13 +781,8 @@
                                         ];
                                     }
 
-                                    if (!empty($statusNotes)) {
-                                        $displayStatusLabel = 'SUDAH COSTING';
-                                        $displayStatusClass = 'status-generated';
-                                    } else {
-                                        $displayStatusLabel = 'SUBMITTED';
-                                        $displayStatusClass = 'status-submitted';
-                                    }
+                                    $displayStatusLabel = 'SUDAH COSTING';
+                                    $displayStatusClass = 'status-generated';
                                 }
                             @endphp
                             @if(!$latestRevision)
@@ -834,16 +855,6 @@
                                             </svg>
                                             <span>View History</span>
                                         </button>
-
-                                        <button type="button" class="btn btn-primary btn-sm"
-                                            onclick="openSubmitModal({{ $latestRevision->id }})">
-                                            <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M22 2L11 13" />
-                                                <path d="M22 2L15 22l-4-9-9-4 20-7z" />
-                                            </svg>
-                                            <span>Submit COGM</span>
-                                        </button>
-
                                         <form action="{{ route('tracking-documents.destroy-project', ['project' => $project->id], absolute: false) }}" method="POST"
                                             onsubmit="return confirmDeleteProject(event, this);"
                                             data-project-label="{{ $project->customer }} / {{ $project->model }} / {{ $project->part_number }}"
@@ -889,7 +900,6 @@
                     <div class="history-block" style="background: #eef2ff;">
                         <div class="history-title">Ringkasan History</div>
                         <div class="history-sub">Total revisi dari Engineering: {{ $project->revisions->count() }} kali</div>
-                        <div class="history-sub">Total submit COGM ke Marketing: {{ $project->revisions->sum(fn ($item) => $item->cogmSubmissions->count()) }} kali</div>
                         @if($project->revisions->isNotEmpty())
                             <div class="action-group" style="margin-top: 0.6rem;">
                                 <form action="{{ route('tracking-documents.add-version', ['revision' => $project->revisions->first()->id], absolute: false) }}" method="POST" style="display: inline-flex;"
@@ -959,16 +969,7 @@
                                     </form>
                                 @endif
                             </div>
-
-                            @if ($revision->cogmSubmissions->isNotEmpty())
-                                @foreach ($revision->cogmSubmissions->sortByDesc('submitted_at') as $submission)
-                                    <div class="history-sub">
-                                        Submit {{ optional($submission->submitted_at)?->timezone('Asia/Jakarta')->format('d/m/Y H:i') ?: '-' }}
-                                        | PIC Marketing: {{ $submission->pic_marketing }}
-                                    </div>
-                                @endforeach
-                            @endif
-                        </div>
+</div>
                     @empty
                         <p style="color: var(--slate-500);">Belum ada riwayat revisi.</p>
                     @endforelse
@@ -980,6 +981,19 @@
     @foreach ($projects as $project)
         @php
             $editRevision = $project->revisions->first();
+            $editCostingData = $editRevision
+                ? \App\Models\CostingData::query()
+                    ->where('tracking_revision_id', $editRevision->id)
+                    ->latest('id')
+                    ->first()
+                : null;
+
+            $editForecast = old('forecast', $editCostingData?->forecast ?? 2000);
+            $editForecastUom = old('forecast_uom', $editCostingData?->forecast_uom ?? 'PCE');
+            $editForecastBasis = old('forecast_basis', $editCostingData?->forecast_basis ?? 'per_month');
+            $editProjectPeriod = old('project_period', $editCostingData?->project_period ?? 2);
+            $editPlant = old('line', $editCostingData?->line ?? ($project->line ?? ''));
+            $editPeriod = old('period', $editCostingData?->period ?? '');
         @endphp
         <div id="edit-project-modal-{{ $project->id }}" class="modal is-hidden" onclick="handleOverlayClose(event, this.id)">
             <div class="modal-content" style="max-width: 1150px;">
@@ -1043,21 +1057,21 @@
                             <div class="form-group">
                                 <label class="form-label">Quantity</label>
                                 <div class="quantity-grid">
-                                    <input type="number" name="forecast" class="form-input" min="0" value="2000" placeholder="2000">
+                                    <input type="text" name="forecast" class="form-input" value="{{ number_format((float) $editForecast, 0, ',', '.') }}" placeholder="2.000" inputmode="numeric">
                                     <select name="forecast_uom" class="form-select">
-                                        <option value="PCE" selected>PCE</option>
-                                        <option value="Set">Set</option>
+                                        <option value="PCE" {{ (string) $editForecastUom === 'PCE' ? 'selected' : '' }}>PCE</option>
+                                        <option value="Set" {{ (string) $editForecastUom === 'Set' ? 'selected' : '' }}>Set</option>
                                     </select>
                                     <select name="forecast_basis" class="form-select">
-                                        <option value="per_month" selected>Per Bulan</option>
-                                        <option value="per_year">Per Tahun</option>
+                                        <option value="per_month" {{ (string) $editForecastBasis === 'per_month' ? 'selected' : '' }}>Per Bulan</option>
+                                        <option value="per_year" {{ (string) $editForecastBasis === 'per_year' ? 'selected' : '' }}>Per Tahun</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div class="form-group">
                                 <label class="form-label">Product's Life</label>
-                                <input type="number" name="project_period" class="form-input" min="0" value="2">
+                                <input type="number" name="project_period" class="form-input" min="0" value="{{ $editProjectPeriod }}">
                             </div>
 
                             <div class="form-group">
@@ -1065,7 +1079,7 @@
                                 <select name="line" class="form-select">
                                     <option value="">-- Pilih Plant --</option>
                                     @foreach($plants as $plant)
-                                        <option value="{{ $plant->code }}" {{ trim((string) ($project->line ?? '')) === trim((string) $plant->code) ? 'selected' : '' }}>
+                                        <option value="{{ $plant->code }}" {{ trim((string) $editPlant) === trim((string) $plant->code) ? 'selected' : '' }}>
                                             {{ $plant->code }} - {{ $plant->name }}
                                         </option>
                                     @endforeach
@@ -1077,7 +1091,7 @@
                                 <select name="period" class="form-select">
                                     <option value="">-- Pilih Periode --</option>
                                     @foreach($periods as $period)
-                                        <option value="{{ $period }}">{{ $period }}</option>
+                                        <option value="{{ $period }}" {{ trim((string) $editPeriod) === trim((string) $period) ? 'selected' : '' }}>{{ $period }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -1273,46 +1287,6 @@
                 </div>
             </div>
         </div>
-
-        <div id="submit-modal-{{ $revision->id }}" class="modal is-hidden" onclick="handleOverlayClose(event, this.id)">
-            <div class="modal-content" style="max-width: 640px;">
-                <div class="modal-header">
-                    <h3 class="card-title" style="margin: 0;">Submit COGM - {{ $revision->project->part_number }} {{ $revision->version_label }}</h3>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('submit-modal-{{ $revision->id }}')">
-                        Tutup
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <form action="{{ route('tracking-documents.submit-cogm', ['revision' => $revision->id], absolute: false) }}" method="POST">
-                        @csrf
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label">PIC Marketing <span style="color: var(--red-500);">*</span></label>
-                            <select name="pic_marketing" class="form-select" required>
-                                <option value="">-- Pilih PIC Marketing --</option>
-                                @foreach($picsMarketing as $pic)
-                                    <option value="{{ $pic->name }}">{{ $pic->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label">Nilai COGM</label>
-                            <input type="number" step="0.01" name="cogm_value" class="form-input" placeholder="Contoh: 125000.50">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label">Submitted By</label>
-                            <input type="text" name="submitted_by" class="form-input" placeholder="Nama tim costing">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label">Catatan</label>
-                            <textarea name="notes" class="form-input" rows="3"></textarea>
-                        </div>
-                        <div style="display: flex; justify-content: flex-end;">
-                            <button type="submit" class="btn btn-primary">Submit ke Marketing</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
     @endforeach
 
     <div id="delete-confirm-modal" class="modal is-hidden" onclick="handleOverlayClose(event, this.id)">
@@ -1397,12 +1371,7 @@
         function openHistoryModal(projectId) {
             openModal('history-modal-' + projectId);
         }
-
-        function openSubmitModal(revisionId) {
-            openModal('submit-modal-' + revisionId);
-        }
-
-        function openUpdateFilesModal(revisionId) {
+function openUpdateFilesModal(revisionId) {
             openModal('update-files-modal-' + revisionId);
         }
 

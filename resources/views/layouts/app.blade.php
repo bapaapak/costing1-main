@@ -25,6 +25,25 @@
         @keyframes lcPopIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
     </style>
     <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}">
+    <style>
+        /* Fix Database submenu item clipping when menu is long */
+        .sidebar-dropdown.open .sidebar-submenu {
+            max-height: 1200px !important;
+            overflow: visible !important;
+        }
+
+        .sidebar-submenu {
+            padding-bottom: 0.5rem;
+        }
+
+        .sidebar-submenu .sidebar-nav-item {
+            min-height: 38px;
+        }
+
+        .sidebar-nav {
+            padding-bottom: 7rem;
+        }
+    </style>
 </head>
 
 <body>
@@ -67,20 +86,24 @@
                         </svg>
                         <span>Dashboard</span>
                     </a>
-                        <a href="{{ route('compare.costing', absolute: false) }}"
-                            class="sidebar-nav-item {{ request()->routeIs('compare.costing') ? 'active' : '' }}">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M3 6h6" />
-                                <path d="M15 6h6" />
-                                <path d="M9 6a3 3 0 0 1 6 0" />
-                                <path d="M3 18h6" />
-                                <path d="M15 18h6" />
-                                <path d="M9 18a3 3 0 0 1 6 0" />
-                                <path d="M12 6v12" />
-                            </svg>
-                            <span>Compare Costing</span>
-                        </a>
-                    <a href="{{ route('resume-cogm', absolute: false) }}"
+                        <a href="{{ route('tracking-documents.index', absolute: false) }}"
+                        class="sidebar-nav-item {{ request()->routeIs('tracking-documents.*') ? 'active' : '' }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3v18h18" />
+                            <path d="M7 14l3-3 3 2 4-5" />
+                        </svg>
+                        <span>Project</span>
+                    </a>
+                <a href="{{ route('database.project-documents', absolute: false) }}"
+                                class="sidebar-nav-item {{ request()->routeIs('database.project-documents*') ? 'active' : '' }}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                    <path d="M9 15l2 2 4-4" />
+                                </svg>
+                                <span>Document Project</span>
+                            </a>
+                            <a href="{{ route('resume-cogm', absolute: false) }}"
                         class="sidebar-nav-item {{ request()->routeIs('resume-cogm') ? 'active' : '' }}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -98,7 +121,23 @@
                         <span>Document Trend Analysis</span>
                     </a>
                     
-                    <div class="sidebar-dropdown">
+<a href="{{ route('compare.costing', absolute: false) }}"
+                            class="sidebar-nav-item {{ request()->routeIs('compare.costing') ? 'active' : '' }}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 6h6" />
+                                <path d="M15 6h6" />
+                                <path d="M9 6a3 3 0 0 1 6 0" />
+                                <path d="M3 18h6" />
+                                <path d="M15 18h6" />
+                                <path d="M9 18a3 3 0 0 1 6 0" />
+                                <path d="M12 6v12" />
+                            </svg>
+                            <span>Compare Costing</span>
+                        </a>
+                    </div>
+                <div class="sidebar-nav-section">
+                    <div class="sidebar-nav-title">Input Data</div>
+<div class="sidebar-dropdown">
                         <button class="sidebar-nav-item sidebar-dropdown-toggle" onclick="toggleDropdown(this)">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
@@ -135,27 +174,7 @@
                                     <span>Wire</span>
                                 </a>
                             @endif
-                            <a href="{{ route('database.costing', absolute: false) }}"
-                                class="sidebar-nav-item sidebar-submenu-item {{ request()->routeIs('database.costing') ? 'active' : '' }}">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="12" y1="1" x2="12" y2="23" />
-                                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                                </svg>
-                                <span>Costing</span>
-                            </a>
-                            <a href="{{ route('database.material-cost', absolute: false) }}"
-                                class="sidebar-nav-item sidebar-submenu-item {{ request()->routeIs('database.material-cost') ? 'active' : '' }}">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M4 7h16" />
-                                    <path d="M4 12h16" />
-                                    <path d="M4 17h16" />
-                                    <circle cx="8" cy="7" r="1" fill="currentColor" stroke="none" />
-                                    <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
-                                    <circle cx="16" cy="17" r="1" fill="currentColor" stroke="none" />
-                                </svg>
-                                <span>Material Cost</span>
-                            </a>
-                            <a href="{{ route('database.customers', absolute: false) }}"
+<a href="{{ route('database.customers', absolute: false) }}"
                                 class="sidebar-nav-item sidebar-submenu-item {{ request()->routeIs('database.customers') ? 'active' : '' }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -201,33 +220,7 @@
                                 </svg>
                                 <span>Cycle Time</span>
                             </a>
-                            <a href="{{ route('database.project-documents', absolute: false) }}"
-                                class="sidebar-nav-item sidebar-submenu-item {{ request()->routeIs('database.project-documents*') ? 'active' : '' }}">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                    <polyline points="14 2 14 8 20 8" />
-                                    <path d="M9 15l2 2 4-4" />
-                                </svg>
-                                <span>Dokumen Project</span>
-                            </a>
-                            <a href="{{ route('products.index', absolute: false) }}"
-                                class="sidebar-nav-item sidebar-submenu-item {{ request()->routeIs('products.*') ? 'active' : '' }}">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                                </svg>
-                                <span>Product</span>
-                            </a>
-                            <a href="{{ route('material-breakdown', absolute: false) }}"
-                                class="sidebar-nav-item sidebar-submenu-item {{ request()->routeIs('material-breakdown') ? 'active' : '' }}">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                    <line x1="3" y1="9" x2="21" y2="9"/>
-                                    <line x1="3" y1="15" x2="21" y2="15"/>
-                                    <line x1="9" y1="3" x2="9" y2="21"/>
-                                </svg>
-                                <span>Material Breakdown</span>
-                            </a>
-                            <a href="{{ route('rate-kurs', absolute: false) }}"
+<a href="{{ route('rate-kurs', absolute: false) }}"
                                 class="sidebar-nav-item sidebar-submenu-item {{ request()->routeIs('rate-kurs*') ? 'active' : '' }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <line x1="12" y1="1" x2="12" y2="23"/>
@@ -248,28 +241,6 @@
                     </div>
                 </div>
                 <div class="sidebar-nav-section">
-                    <div class="sidebar-nav-title">Input Data</div>
-                    <a href="{{ route('form', absolute: false) }}"
-                        class="sidebar-nav-item {{ request()->routeIs('form') ? 'active' : '' }}">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                            <line x1="16" y1="13" x2="8" y2="13" />
-                            <line x1="16" y1="17" x2="8" y2="17" />
-                            <polyline points="10 9 9 9 8 9" />
-                        </svg>
-                        <span>Form Costing</span>
-                    </a>
-                    <a href="{{ route('tracking-documents.index', absolute: false) }}"
-                        class="sidebar-nav-item {{ request()->routeIs('tracking-documents.*') ? 'active' : '' }}">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 3v18h18" />
-                            <path d="M7 14l3-3 3 2 4-5" />
-                        </svg>
-                        <span>Project</span>
-                    </a>
-                </div>
-                <div class="sidebar-nav-section">
                     <div class="sidebar-nav-title">Laporan</div>
                     <a href="{{ route('laporan', absolute: false) }}"
                         class="sidebar-nav-item {{ request()->routeIs('laporan') ? 'active' : '' }}">
@@ -279,14 +250,7 @@
                         </svg>
                         <span>Laporan & Export</span>
                     </a>
-                    <a href="{{ route('audit-trail', absolute: false) }}"
-                        class="sidebar-nav-item {{ request()->routeIs('audit-trail') ? 'active' : '' }}">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                        </svg>
-                        <span>Audit Trail</span>
-                    </a>
-                </div>
+</div>
                 @if(auth()->check() && auth()->user()->role === 'admin')
                 <div class="sidebar-nav-section">
                     <div class="sidebar-nav-title">Administrasi</div>

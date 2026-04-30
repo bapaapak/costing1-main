@@ -84,24 +84,8 @@ class DatabaseController extends Controller
         return view('database.parts', compact('materials'));
     }
 
-    public function costing(Request $request, DatabaseCostingService $service)
-    {
-        return view('database.costing', $service->getCostingPageData($request));
-    }
 
-    public function materialCost(Request $request, DatabaseCostingService $service)
-    {
-        return view('database.material-cost', $service->getMaterialCostPageData($request));
-    }
 
-    public function destroyCosting($id, DatabaseCostingService $service)
-    {
-        $costing = CostingData::findOrFail($id);
-
-        $service->delete($costing);
-
-        return back()->with('success', 'Baris costing berhasil dihapus.');
-    }
 
     public function customers()
     {
@@ -564,6 +548,12 @@ class DatabaseController extends Controller
         $revision = DocumentRevision::findOrFail($id);
 
         $service->update($revision, $request->validated(), $request);
+
+        if ($request->boolean('return_to_dashboard')) {
+            return redirect()
+                ->route('dashboard')
+                ->with('success', 'Dokumen project berhasil diperbarui.');
+        }
 
         return back()->with('success', 'Dokumen project berhasil diperbarui.');
     }

@@ -4,9 +4,9 @@
 @section('page-title', 'Alasan Canceled/Failed')
 
 @section('breadcrumb')
-    <a href="{{ route('dashboard', absolute: false) }}">Menu Utama</a>
+    <a href="{{ route('dashboard', absolute: false) }}">Dashboard</a>
     <span class="breadcrumb-separator">/</span>
-    <a href="{{ route('analisis-tren', absolute: false) }}">Document Trend Analysis</a>
+    <a href="{{ route('analisis-tren', absolute: false) }}" style="color:#2563eb;font-weight:500;text-decoration:none;">Document Trend Analysis</a>
     <span class="breadcrumb-separator">/</span>
     <span>Alasan Canceled/Failed</span>
 @endsection

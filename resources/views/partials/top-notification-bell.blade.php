@@ -1,10 +1,15 @@
 @php
+    use App\Models\CostingData;
     use App\Models\DocumentRevision;
+    use App\Models\MaterialBreakdown;
 
     /*
      * Notification Bell Project
      * - Dokumen project: muncul kalau belum ada satupun A00/A04/A05.
-     * - Project costing: muncul kalau status belum sampai minimal "Sudah Costing".
+     * - Project belum costing: muncul hanya kalau data costing belum lengkap
+     *   (belum ada material atau belum ada cycle time).
+     * - Project belum full priced: muncul kalau sudah costing tetapi masih ada
+     *   part yang belum ada harga atau masih estimate.
      */
 
     $latestRevisionIds = DocumentRevision::query()
@@ -17,6 +22,40 @@
         ->get();
 
     $notificationItems = collect();
+
+    $normalizeUniquePartCount = function ($rows): int {
+        return $rows
+            ->map(function ($row, $index) {
+                $partNo = trim((string) ($row->part_no ?? ''));
+
+                return $partNo !== '' ? strtoupper($partNo) : ('ROW-' . ($index + 1));
+            })
+            ->unique()
+            ->count();
+    };
+
+    $hasCycleTimeRows = function ($cycleTimes): bool {
+        if (is_string($cycleTimes)) {
+            $decoded = json_decode($cycleTimes, true);
+            $cycleTimes = is_array($decoded) ? $decoded : [];
+        } elseif ($cycleTimes instanceof \Illuminate\Support\Collection) {
+            $cycleTimes = $cycleTimes->toArray();
+        } elseif (!is_array($cycleTimes)) {
+            $cycleTimes = [];
+        }
+
+        return collect($cycleTimes)->contains(function ($row) {
+            if (!is_array($row)) {
+                return false;
+            }
+
+            return collect($row)->contains(function ($value) {
+                $value = trim((string) $value);
+
+                return $value !== '' && $value !== '0' && $value !== '0.0' && $value !== '0,0';
+            });
+        });
+    };
 
     foreach ($latestProjectRevisions as $revision) {
         $project = $revision->project;
@@ -34,9 +73,6 @@
 
         /*
          * Pemberitahuan dokumen project:
-         * Format: Nama Customer - Model - Keterangan
-         * Contoh: Astra Honda Motor, PT - K5FA - A00 belum ada
-         *
          * Notifikasi dokumen hilang kalau minimal salah satu A00/A04/A05 sudah ada.
          */
         if (! $hasA00 && ! $hasA04 && ! $hasA05) {
@@ -53,33 +89,87 @@
             ]);
         }
 
-        /*
-         * Pemberitahuan project:
-         * Format: Nama Customer - Model - Keterangan
-         * Contoh: Astra Honda Motor, PT - K5FA - Belum costing
-         */
-        $costingReachedStatuses = [
-            DocumentRevision::STATUS_SUDAH_COSTING,
-            DocumentRevision::STATUS_PENDING_PRICING,
-            DocumentRevision::STATUS_COGM_GENERATED,
-            DocumentRevision::STATUS_SUBMITTED_TO_MARKETING,
-        ];
+        $costingData = CostingData::query()
+            ->where('tracking_revision_id', $revision->id)
+            ->latest('id')
+            ->first();
 
-        if (! in_array($revision->status, $costingReachedStatuses, true)) {
+        $costingUrl = Route::has('form')
+            ? route('form', array_filter([
+                'id' => $costingData?->id,
+                'tracking_revision_id' => $revision->id,
+            ], fn ($value) => $value !== null && $value !== ''), false)
+            : '#';
+
+        $materialRows = collect();
+        if ($costingData) {
+            $materialRows = MaterialBreakdown::query()
+                ->where('costing_data_id', $costingData->id)
+                ->get(['part_no', 'amount1', 'cn_type']);
+        }
+
+        $hasMaterialData = $materialRows->isNotEmpty();
+        $hasCycleTimeData = $costingData ? $hasCycleTimeRows($costingData->cycle_times ?? []) : false;
+
+        /*
+         * Project belum costing hanya untuk project yang memang belum punya
+         * data Material atau Cycle Time. Kalau status project sudah costing
+         * tapi masih ada harga kosong/estimate, jangan tampil sebagai belum costing.
+         */
+        if (! $hasMaterialData || ! $hasCycleTimeData) {
             $notificationItems->push([
                 'type' => 'project',
                 'title' => 'Project belum costing',
                 'line' => $customerName . ' - ' . $modelName . ' - Belum costing',
-                'description' => 'Project masih perlu diproses ke Form Costing.',
+                'description' => 'Project masih perlu dilengkapi di Form Costing.',
                 'button_label' => 'Cek Project',
-                'url' => Route::has('tracking-documents.index')
-                    ? route('tracking-documents.index', absolute: false)
-                    : '#',
+                'url' => $costingUrl,
                 'color' => 'blue',
+            ]);
+
+            continue;
+        }
+
+        $missingPriceRows = $materialRows->filter(function ($row) {
+            return (float) ($row->amount1 ?? 0) <= 0;
+        });
+
+        $estimatePriceRows = $materialRows->filter(function ($row) {
+            return strtoupper(trim((string) ($row->cn_type ?? ''))) === 'E';
+        });
+
+        $missingPriceCount = $normalizeUniquePartCount($missingPriceRows);
+        $estimatePriceCount = $normalizeUniquePartCount($estimatePriceRows);
+
+        /*
+         * Project sudah costing tapi belum full priced.
+         * Ini menggantikan notifikasi "Project belum costing" untuk project
+         * yang statusnya sudah costing namun masih ada issue harga.
+         */
+        if ($missingPriceCount > 0 || $estimatePriceCount > 0) {
+            $issues = collect();
+
+            if ($missingPriceCount > 0) {
+                $issues->push($missingPriceCount . ' part belum ada harga');
+            }
+
+            if ($estimatePriceCount > 0) {
+                $issues->push($estimatePriceCount . ' part masih estimate');
+            }
+
+            $notificationItems->push([
+                'type' => 'pricing',
+                'title' => 'Project belum full priced',
+                'line' => $customerName . ' - ' . $modelName . ' - ' . $issues->implode(', '),
+                'description' => 'Status dokumen sudah costing, tetapi harga material belum sepenuhnya final.',
+                'button_label' => 'Cek Harga',
+                'url' => $costingUrl,
+                'color' => 'purple',
             ]);
         }
     }
 
+    $notificationItems = $notificationItems->values();
     $notificationCount = $notificationItems->count();
 @endphp
 
@@ -219,6 +309,11 @@
         border-color: #bfdbfe;
     }
 
+    .top-notification-item.is-purple {
+        background: #faf5ff;
+        border-color: #e9d5ff;
+    }
+
     .top-notification-icon {
         width: 34px;
         height: 34px;
@@ -238,6 +333,11 @@
     .top-notification-icon.is-blue {
         background: #dbeafe;
         color: #2563eb;
+    }
+
+    .top-notification-icon.is-purple {
+        background: #f3e8ff;
+        color: #7e22ce;
     }
 
     .top-notification-content {
@@ -273,6 +373,11 @@
         color: #1d4ed8;
     }
 
+    .top-notification-line.is-purple {
+        background: #f3e8ff;
+        color: #7e22ce;
+    }
+
     .top-notification-desc {
         font-size: 0.72rem;
         color: #64748b;
@@ -298,6 +403,11 @@
 
     .top-notification-action.is-blue {
         background: #2563eb;
+        color: #ffffff;
+    }
+
+    .top-notification-action.is-purple {
+        background: #7e22ce;
         color: #ffffff;
     }
 
@@ -355,7 +465,7 @@
             @forelse($notificationItems as $item)
                 <div class="top-notification-item is-{{ $item['color'] }}">
                     <div class="top-notification-icon is-{{ $item['color'] }}">
-                        {{ $item['type'] === 'document' ? '!' : 'i' }}
+                        {{ $item['type'] === 'document' ? '!' : ($item['type'] === 'pricing' ? 'Rp' : 'i') }}
                     </div>
 
                     <div class="top-notification-content">
