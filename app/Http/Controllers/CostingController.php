@@ -1808,10 +1808,15 @@ class CostingController extends Controller
 
     public function quickUpdateMaterial(Request $request)
     {
+        /*
+         * SAVE ONLY MATERIAL:
+         * Simpan input material yang berubah saja.
+         * Tidak hitung ulang material_cost / COGM / full price / unpriced parts di proses ini.
+         * Tujuannya supaya tombol Simpan Material cepat dan tidak stuck.
+         */
         $validated = $request->validate([
             'costing_data_id' => ['required', 'integer', 'exists:costing_data,id'],
             'materials_json' => ['required', 'string'],
-            'material_cost' => ['nullable'],
         ]);
 
         $rows = json_decode((string) $validated['materials_json'], true);
@@ -1846,24 +1851,22 @@ class CostingController extends Controller
                     continue;
                 }
 
-                $unit = $this->normalizeUnitValue($row['unit'] ?? '');
                 $currency = strtoupper(trim((string) ($row['currency'] ?? 'IDR')));
-                $cnType = strtoupper(trim((string) ($row['cn_type'] ?? 'N')));
-
                 if (!in_array($currency, ['IDR', 'USD', 'JPY'], true)) {
                     $currency = 'IDR';
                 }
 
+                $cnType = strtoupper(trim((string) ($row['cn_type'] ?? 'N')));
                 if (!in_array($cnType, ['C', 'N', 'E'], true)) {
                     $cnType = 'N';
                 }
 
-                $materialRow = [
+                $payload = [
+                    'row_no' => $rowNo,
                     'part_no' => trim((string) ($row['part_no'] ?? '')),
                     'id_code' => trim((string) ($row['id_code'] ?? '')) ?: null,
                     'part_name' => trim((string) ($row['part_name'] ?? '')),
                     'qty_req' => round($this->toFloatValue($row['qty_req'] ?? 0), 6),
-                    'unit' => $unit,
                     'pro_code' => trim((string) ($row['pro_code'] ?? '')),
                     'amount1' => round($this->toFloatValue($row['amount1'] ?? 0), 6),
                     'unit_price_basis' => round($this->toFloatValue($row['unit_price_basis'] ?? 0), 6),
@@ -1871,37 +1874,106 @@ class CostingController extends Controller
                     'currency' => $currency,
                     'qty_moq' => round($this->toFloatValue($row['qty_moq'] ?? 0), 6),
                     'cn_type' => $cnType,
-                    'supplier' => trim((string) ($row['supplier'] ?? '')),
-                    'import_tax' => round($this->toFloatValue($row['import_tax'] ?? 0), 6),
+                    'import_tax_percent' => round($this->toFloatValue($row['import_tax'] ?? 0), 6),
+                    'updated_at' => $now,
+                ];
+
+                if (isset($columnMap['unit'])) {
+                    $payload['unit'] = $this->normalizeUnitValue($row['unit'] ?? '');
+                }
+
+                if (isset($columnMap['supplier'])) {
+                    $payload['supplier'] = trim((string) ($row['supplier'] ?? ''));
+                }
+
+                /*
+                 * Save-only sengaja tidak update amount2/unit_price2/multiply_factor.
+                 * Field-field itu akan dihitung ulang oleh proses Recalculate Material.
+                 */
+                $payload = array_intersect_key($payload, $columnMap);
+
+                $affected = MaterialBreakdown::where('costing_data_id', $costingData->id)
+                    ->where('row_no', $rowNo)
+                    ->update($payload);
+
+                $updatedRows += (int) $affected;
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Material berhasil disimpan. Silakan klik Hitung Ulang COGM untuk memperbarui total.',
+                'save_only' => true,
+                'needs_recalculate' => true,
+                'sent_rows' => count($rows),
+                'updated_rows' => $updatedRows,
+                'version' => 'material-save-only-v1',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            \Log::error('CostingController@quickUpdateMaterial save-only error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan Material: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function recalculateMaterial(Request $request)
+    {
+        /*
+         * RECALCULATE MATERIAL:
+         * Proses berat dipindahkan ke tombol terpisah.
+         * Di sini baru hitung ulang amount2, material_cost, dan total COGM terkait.
+         */
+        $validated = $request->validate([
+            'costing_data_id' => ['required', 'integer', 'exists:costing_data,id'],
+        ]);
+
+        $costingData = CostingData::findOrFail((int) $validated['costing_data_id']);
+
+        DB::beginTransaction();
+
+        try {
+            $rows = MaterialBreakdown::where('costing_data_id', $costingData->id)
+                ->orderBy('row_no')
+                ->get();
+
+            $columns = \Illuminate\Support\Facades\Schema::getColumnListing('material_breakdowns');
+            $columnMap = array_fill_keys($columns, true);
+            $now = now();
+            $updatedRows = 0;
+
+            foreach ($rows as $materialBreakdown) {
+                $materialRow = [
+                    'part_no' => $materialBreakdown->part_no,
+                    'id_code' => $materialBreakdown->id_code,
+                    'part_name' => $materialBreakdown->part_name,
+                    'qty_req' => (float) ($materialBreakdown->qty_req ?? 0),
+                    'unit' => $materialBreakdown->unit ?? '',
+                    'pro_code' => $materialBreakdown->pro_code,
+                    'amount1' => (float) ($materialBreakdown->amount1 ?? 0),
+                    'unit_price_basis' => (float) ($materialBreakdown->unit_price_basis ?? 0),
+                    'currency' => $materialBreakdown->currency ?? 'IDR',
+                    'qty_moq' => (float) ($materialBreakdown->qty_moq ?? 0),
+                    'cn_type' => $materialBreakdown->cn_type ?? 'N',
+                    'supplier' => $materialBreakdown->supplier ?? '',
+                    'import_tax' => (float) ($materialBreakdown->import_tax_percent ?? 0),
                 ];
 
                 $calculated = $this->calculateCogmMaterialAmount2($materialRow, $costingData);
 
                 $payload = [
-                    'row_no' => $rowNo,
-                    'part_no' => $materialRow['part_no'],
-                    'id_code' => $materialRow['id_code'],
-                    'part_name' => $materialRow['part_name'],
-                    'qty_req' => $materialRow['qty_req'],
-                    'pro_code' => $materialRow['pro_code'],
-                    'amount1' => $materialRow['amount1'],
-                    'unit_price_basis' => $materialRow['unit_price_basis'],
-                    'unit_price_basis_text' => $materialRow['unit_price_basis_text'],
-                    'currency' => $materialRow['currency'],
-                    'qty_moq' => $materialRow['qty_moq'],
-                    'cn_type' => $materialRow['cn_type'],
-                    'import_tax_percent' => $materialRow['import_tax'],
                     'amount2' => $calculated['amount2'],
                     'updated_at' => $now,
                 ];
-
-                if (isset($columnMap['unit'])) {
-                    $payload['unit'] = $materialRow['unit'];
-                }
-
-                if (isset($columnMap['supplier'])) {
-                    $payload['supplier'] = $materialRow['supplier'];
-                }
 
                 if (isset($columnMap['multiply_factor'])) {
                     $payload['multiply_factor'] = $calculated['multiply_factor'];
@@ -1917,16 +1989,13 @@ class CostingController extends Controller
 
                 $payload = array_intersect_key($payload, $columnMap);
 
-                $affected = MaterialBreakdown::where('costing_data_id', $costingData->id)
-                    ->where('row_no', $rowNo)
-                    ->update($payload);
+                $materialBreakdown->fill($payload);
+                $materialBreakdown->save();
 
-                $updatedRows += (int) $affected;
+                $updatedRows++;
             }
 
-            $materialCost = $request->has('material_cost')
-                ? $this->parseNumericInput($request->input('material_cost', 0))
-                : (float) ($costingData->material_cost ?? 0);
+            $materialCost = $this->calculateMaterialCostFromExistingBreakdowns($costingData);
 
             $costingData->update([
                 'material_cost' => $materialCost,
@@ -1936,16 +2005,15 @@ class CostingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Material berhasil disimpan cepat.',
+                'message' => 'COGM berhasil dihitung ulang.',
                 'material_cost' => $materialCost,
-                'sent_rows' => count($rows),
                 'updated_rows' => $updatedRows,
-                'version' => 'quick-update-v2',
+                'version' => 'material-recalculate-v1',
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            \Log::error('CostingController@quickUpdateMaterial error', [
+            \Log::error('CostingController@recalculateMaterial error', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
@@ -1953,35 +2021,17 @@ class CostingController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyimpan cepat: ' . $e->getMessage(),
+                'message' => 'Gagal menghitung ulang COGM: ' . $e->getMessage(),
             ], 500);
         }
     }
 
-    private function toStoreCostingRequest(Request $request): StoreCostingRequest
+    private function calculateMaterialCostFromExistingBreakdowns(CostingData $costingData): float
     {
-        /*
-         * import-partlist / import-umh / import-cycle-time masuk lewat route upload
-         * biasa sehingga tipe request-nya Illuminate\Http\Request.
-         * Method store() membutuhkan StoreCostingRequest karena memakai validated()
-         * dan resolvedUpdateSection(). Jadi request upload dikonversi dulu ke
-         * StoreCostingRequest agar bisa memakai flow penyimpanan yang sama.
-         */
-        $storeRequest = StoreCostingRequest::createFrom($request);
-        $storeRequest->setContainer(app());
-        $storeRequest->setRedirector(app('redirect'));
-        $storeRequest->setUserResolver($request->getUserResolver());
-        $storeRequest->setRouteResolver($request->getRouteResolver());
-
-        /*
-         * Wajib dipanggil sebelum store(), karena store() memakai $request->validated().
-         * Kalau tidak, FormRequest belum punya validator dan akan error:
-         * "Call to a member function validated() on null".
-         */
-        $storeRequest->validateResolved();
-
-        return $storeRequest;
+        return (float) MaterialBreakdown::where('costing_data_id', $costingData->id)
+            ->sum('amount2');
     }
+
 
     public function importPartlist(Request $request, CostingImportService $importService, CostingMaterialService $materialService, CostingPersistenceService $persistenceService, CostingStatusService $statusService, CostingResponseService $responseService)
     {

@@ -598,8 +598,9 @@
                                     $statusProjectBgColor = $statusProjectColors[$statusProjectDisplayValue] ?? '#2563eb';
                                 @endphp
                                 <select class="status-project-select"
-                                    onchange="updateStatusProjectDropdownColor(this); saveStatusProject(this)"
+                                    onchange="saveStatusProject(this)"
                                     data-revision-id="{{ $row->trackingRevision?->id ?? '' }}"
+                                    data-last-saved-status="{{ $statusProjectDisplayValue }}"
                                     data-status-project-color="{{ $statusProjectBgColor }}"
                                     style="border: 1px solid {{ $statusProjectBgColor }}; border-radius: 6px; padding: 0.3rem 0.5rem; font-size: 0.78rem; font-weight: 700; color: #ffffff; background: {{ $statusProjectBgColor }}; min-width: 170px;">
                                     <option value="A00" {{ $statusProjectDisplayValue === 'A00' ? 'selected' : '' }} style="background: #2563eb; color: #fff; font-weight: 700;">A00 (RFQ/RFI)</option>
@@ -724,6 +725,14 @@
 @endsection
 
 @section('scripts')
+
+<form id="statusProjectUpdateForm" method="POST" style="display:none;">
+    @csrf
+    @method('PATCH')
+    <input type="hidden" name="status" id="statusProjectUpdateStatus">
+</form>
+
+
 <script>
     const detailCostingPageSize = 10;
     let detailCostingCurrentPage = 1;
@@ -839,34 +848,138 @@
     }
 
     function saveStatusProject(selectEl) {
-        const revisionId = selectEl.dataset.revisionId;
-        if (!revisionId) return;
+        if (!selectEl) {
+            return;
+        }
 
-        const status = selectEl.value;
+        const revisionId = selectEl.dataset.revisionId;
+        const previousStatus = selectEl.dataset.lastSavedStatus || 'A00';
+        const status = (selectEl.value || '').trim();
+
+        if (!revisionId) {
+            alert('Revision ID tidak ditemukan.');
+            selectEl.value = previousStatus;
+            updateStatusProjectDropdownColor(selectEl);
+            return;
+        }
+
+        updateStatusProjectDropdownColor(selectEl);
+
+        /*
+         * Untuk A04/A05 gunakan normal form submit, bukan fetch.
+         * Alasannya: controller perlu mengirim session flash:
+         * - open_document_revision_id
+         * - open_document_target_status
+         * agar halaman Project Document bisa auto-open modal.
+         */
+        if (status === 'A04' || status === 'A05') {
+            showStatusProjectLoading('Membuka halaman Project Document...');
+
+            const form = document.getElementById('statusProjectUpdateForm');
+            const statusInput = document.getElementById('statusProjectUpdateStatus');
+
+            if (!form || !statusInput) {
+                hideStatusProjectLoading();
+                selectEl.value = previousStatus;
+                updateStatusProjectDropdownColor(selectEl);
+                alert('Form update status project tidak ditemukan.');
+                return;
+            }
+
+            statusInput.value = status;
+            form.action = '/costing/status-project/' + encodeURIComponent(revisionId);
+            form.submit();
+            return;
+        }
+
+        showStatusProjectLoading('Menyimpan status project...');
+
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
             || document.querySelector('input[name="_token"]')?.value || '';
 
         selectEl.disabled = true;
-        fetch('/costing/status-project/' + revisionId, {
+
+        fetch('/costing/status-project/' + encodeURIComponent(revisionId), {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrfToken,
                 'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
             },
             body: JSON.stringify({ status: status }),
         })
-        .then(function(res) {
-            if (!res.ok) throw new Error('Gagal menyimpan');
-            return res.json();
+        .then(async function(res) {
+            const data = await res.json().catch(function () {
+                return {};
+            });
+
+            if (!res.ok || data.success === false) {
+                throw new Error(data.message || 'Gagal menyimpan status project.');
+            }
+
+            return data;
         })
         .then(function() {
+            selectEl.dataset.lastSavedStatus = status;
             selectEl.disabled = false;
+            hideStatusProjectLoading();
+
+            if (status === 'A00') {
+                window.location.reload();
+            }
         })
-        .catch(function() {
+        .catch(function(error) {
             selectEl.disabled = false;
-            alert('Gagal menyimpan status project. Silakan coba lagi.');
+            selectEl.value = previousStatus;
+            updateStatusProjectDropdownColor(selectEl);
+            hideStatusProjectLoading();
+
+            alert(error.message || 'Gagal menyimpan status project. Silakan coba lagi.');
         });
+    }
+
+    function showStatusProjectLoading(message) {
+        let overlay = document.getElementById('statusProjectLoadingOverlay');
+
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'statusProjectLoadingOverlay';
+            overlay.style.position = 'fixed';
+            overlay.style.inset = '0';
+            overlay.style.zIndex = '100000';
+            overlay.style.background = 'rgba(15, 23, 42, 0.42)';
+            overlay.style.backdropFilter = 'blur(2px)';
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.innerHTML = `
+                <div style="background:#fff; border-radius:16px; padding:1.4rem 1.6rem; min-width:220px; box-shadow:0 18px 45px rgba(15,23,42,.20); text-align:center;">
+                    <div style="width:42px;height:42px;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:999px;margin:0 auto .85rem;animation:statusProjectSpin .75s linear infinite;"></div>
+                    <div id="statusProjectLoadingText" style="font-size:.86rem;font-weight:800;color:#334155;">Memuat halaman...</div>
+                </div>
+            `;
+
+            const style = document.createElement('style');
+            style.id = 'statusProjectLoadingStyle';
+            style.textContent = '@keyframes statusProjectSpin{to{transform:rotate(360deg)}}';
+            document.head.appendChild(style);
+            document.body.appendChild(overlay);
+        }
+
+        const text = document.getElementById('statusProjectLoadingText');
+        if (text) {
+            text.textContent = message || 'Memuat halaman...';
+        }
+
+        overlay.style.display = 'flex';
+    }
+
+    function hideStatusProjectLoading() {
+        const overlay = document.getElementById('statusProjectLoadingOverlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
     }
 
     function updateStatusProjectDropdownColor(selectEl) {
