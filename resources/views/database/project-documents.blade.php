@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Document Project')
-@section('page-title', 'Document Project')
+@section('title', 'Project Document')
+@section('page-title', 'Project Document')
 
 @section('breadcrumb')
     <a href="{{ route('dashboard', absolute: false) }}">Dashboard</a>
     <span class="breadcrumb-separator">/</span>
-    <span>Document Project</span>
+    <span>Project Document</span>
 @endsection
 
 @section('content')
@@ -349,6 +349,7 @@
                                             'a04' => $rev->a04 ?? '',
                                             'a04_received_date' => $hasA04 && $rev->a04_received_date ? $rev->a04_received_date->format('Y-m-d') : '',
                                             'a04_doc' => $rev->a04_document_original_name ?? '',
+                                            'a04_reason' => $rev->a04_reason ?? '',
                                             'a05' => $rev->a05 ?? '',
                                             'a05_received_date' => $hasA05 && $rev->a05_received_date ? $rev->a05_received_date->format('Y-m-d') : '',
                                             'a05_doc' => $rev->a05_document_original_name ?? '',
@@ -395,7 +396,7 @@
     <div id="editDocModal" class="doc-modal is-hidden" onclick="if(event.target===this)closeEditDocModal()">
         <div class="doc-modal-content doc-modal-wide">
             <div class="doc-modal-header">
-                <h3 class="doc-modal-title">Edit Document Project</h3>
+                <h3 class="doc-modal-title">Edit Project Document</h3>
                 <button type="button" class="doc-modal-close" onclick="closeEditDocModal()">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
@@ -403,7 +404,7 @@
             <div style="background: var(--slate-50); padding: 0.6rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.82rem; color: var(--slate-600); border: 1px solid var(--slate-200);">
                 <strong id="editDocLabel"></strong>
             </div>
-            <form id="editDocForm" method="POST" enctype="multipart/form-data" onsubmit="document.getElementById('editA00Status').disabled=false; if (shouldReturnToDashboardAfterDocumentModal) { showReturnToDashboardLoading(); }">
+            <form id="editDocForm" method="POST" enctype="multipart/form-data" onsubmit="return validateAndSubmitProjectDocumentForm()">
                 @csrf
                 @method('PUT')
                 @if(session('open_document_revision_id'))
@@ -450,7 +451,12 @@
                                 <input type="date" name="a04_received_date" id="editA04Date" class="form-input">
                             </div>
                             <div class="doc-form-group">
-                                <label>Dokumen (PDF)</label>
+                                <label>Alasan Canceled/Failed <span style="color:#dc2626;">*</span></label>
+                                <textarea name="a04_reason" id="editA04Reason" class="form-input" rows="3" placeholder="Tuliskan alasan project menjadi A04..." style="min-height:84px; resize:vertical;"></textarea>
+                                <small style="color: var(--slate-500); font-size: 0.72rem;">Wajib diisi jika status A04 = Ada.</small>
+                            </div>
+                            <div class="doc-form-group">
+                                <label>Dokumen (PDF) <span style="color:#dc2626;">*</span></label>
                                 <input type="file" name="a04_document_file" id="editA04File" accept=".pdf" class="form-input" style="font-size:0.75rem;">
                                 <small id="editA04DocName" style="color: var(--slate-500); font-size: 0.72rem;"></small>
                             </div>
@@ -473,7 +479,7 @@
                                 <input type="date" name="a05_received_date" id="editA05Date" class="form-input">
                             </div>
                             <div class="doc-form-group">
-                                <label>Dokumen (PDF)</label>
+                                <label>Dokumen (PDF) <span style="color:#dc2626;">*</span></label>
                                 <input type="file" name="a05_document_file" id="editA05File" accept=".pdf" class="form-input" style="font-size:0.75rem;">
                                 <small id="editA05DocName" style="color: var(--slate-500); font-size: 0.72rem;"></small>
                             </div>
@@ -571,6 +577,7 @@
         document.getElementById('editA04Status').value = data.a04 === 'ada' ? 'ada' : 'belum_ada';
         document.getElementById('editA04Date').value = data.a04_received_date || '';
         document.getElementById('editA04DocName').textContent = data.a04_doc ? 'File saat ini: ' + data.a04_doc : '';
+        document.getElementById('editA04Reason').value = data.a04_reason || '';
         toggleEditDateWrap('a04');
 
         // A05
@@ -638,6 +645,52 @@
     const dashboardReturnUrl = @json(route('dashboard', absolute: false));
     const shouldReturnToDashboardAfterDocumentModal = @json((bool) session('open_document_revision_id'));
 
+
+    function validateAndSubmitProjectDocumentForm() {
+        const a00 = document.getElementById('editA00Status');
+        const a04 = document.getElementById('editA04Status');
+        const a05 = document.getElementById('editA05Status');
+        const a04Reason = document.getElementById('editA04Reason');
+        const a04File = document.getElementById('editA04File');
+        const a05File = document.getElementById('editA05File');
+        const a04DocName = document.getElementById('editA04DocName');
+        const a05DocName = document.getElementById('editA05DocName');
+
+        if (a04 && a04.value === 'ada') {
+            if (!a04Reason || a04Reason.value.trim() === '') {
+                alert('Alasan Canceled/Failed wajib diisi untuk status A04.');
+                a04Reason?.focus();
+                return false;
+            }
+
+            const hasExistingA04Doc = a04DocName && a04DocName.textContent.trim() !== '';
+            if ((!a04File || a04File.files.length === 0) && !hasExistingA04Doc) {
+                alert('Dokumen A04 wajib diupload.');
+                a04File?.focus();
+                return false;
+            }
+        }
+
+        if (a05 && a05.value === 'ada') {
+            const hasExistingA05Doc = a05DocName && a05DocName.textContent.trim() !== '';
+            if ((!a05File || a05File.files.length === 0) && !hasExistingA05Doc) {
+                alert('Dokumen A05 wajib diupload.');
+                a05File?.focus();
+                return false;
+            }
+        }
+
+        if (a00) {
+            a00.disabled = false;
+        }
+
+        if (shouldReturnToDashboardAfterDocumentModal) {
+            showReturnToDashboardLoading();
+        }
+
+        return true;
+    }
+
     function focusTargetDocumentSection(targetStatus) {
         if (targetStatus !== 'A04' && targetStatus !== 'A05') {
             return;
@@ -647,6 +700,7 @@
         const statusSelect = document.getElementById('edit' + targetStatus + 'Status');
         const dateInput = document.getElementById('edit' + targetStatus + 'Date');
         const fileInput = document.getElementById('edit' + targetStatus + 'File');
+        const reasonInput = targetStatus === 'A04' ? document.getElementById('editA04Reason') : null;
         const dateWrap = document.getElementById('edit' + targetStatus + 'DateWrap');
 
         if (statusSelect) {
@@ -667,6 +721,12 @@
         }
 
         window.setTimeout(function () {
+            if (reasonInput) {
+                reasonInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                reasonInput.focus();
+                return;
+            }
+
             if (fileInput) {
                 fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 fileInput.focus();

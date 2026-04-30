@@ -259,7 +259,7 @@ class CostingController extends Controller
                 'color' => '#dc2626',
             ],
             [
-                'label' => 'A05 (Die Go/Berhasil)',
+                'label' => 'A05 (Die Go)',
                 'count' => $a05ProjectCount,
                 'color' => '#22c55e',
             ],
@@ -378,12 +378,12 @@ class CostingController extends Controller
         $statusProjectCountsByLabel = [
             'A00 (RFQ/RFI)' => 0,
             'A04 (Canceled/Failed)' => 0,
-            'A05 (Die Go/Berhasil)' => 0,
+            'A05 (Die Go)' => 0,
         ];
         $statusPotentialCostByLabel = [
             'A00 (RFQ/RFI)' => 0,
             'A04 (Canceled/Failed)' => 0,
-            'A05 (Die Go/Berhasil)' => 0,
+            'A05 (Die Go)' => 0,
         ];
 
         foreach ($costingData as $item) {
@@ -394,8 +394,8 @@ class CostingController extends Controller
 
             $potentialCost = $resolvePotentialSales($item);
             if (($revision->a05 ?? null) === 'ada') {
-                $statusProjectCountsByLabel['A05 (Die Go/Berhasil)'] += 1;
-                $statusPotentialCostByLabel['A05 (Die Go/Berhasil)'] += $potentialCost;
+                $statusProjectCountsByLabel['A05 (Die Go)'] += 1;
+                $statusPotentialCostByLabel['A05 (Die Go)'] += $potentialCost;
             } elseif (($revision->a04 ?? null) === 'ada') {
                 $statusProjectCountsByLabel['A04 (Canceled/Failed)'] += 1;
                 $statusPotentialCostByLabel['A04 (Canceled/Failed)'] += $potentialCost;
@@ -407,7 +407,7 @@ class CostingController extends Controller
 
         $a00ProjectCount = (int) ($statusProjectCountsByLabel['A00 (RFQ/RFI)'] ?? 0);
         $a04ProjectCount = (int) ($statusProjectCountsByLabel['A04 (Canceled/Failed)'] ?? 0);
-        $a05ProjectCount = (int) ($statusProjectCountsByLabel['A05 (Die Go/Berhasil)'] ?? 0);
+        $a05ProjectCount = (int) ($statusProjectCountsByLabel['A05 (Die Go)'] ?? 0);
         $costingProjectCount = (int) $costingData->count();
         $pendingFormCostingCount = max(0, (int) $trackingProjectCount - (int) $costingProjectCount);
         $totalProjectCount = $costingProjectCount;
@@ -425,7 +425,7 @@ class CostingController extends Controller
                 'color' => '#dc2626',
             ],
             [
-                'label' => 'A05 (Die Go/Berhasil)',
+                'label' => 'A05 (Die Go)',
                 'count' => $a05ProjectCount,
                 'color' => '#22c55e',
             ],
@@ -4225,25 +4225,33 @@ class CostingController extends Controller
         $status = (string) $validated['status'];
 
         /*
-         * Business rule:
-         * - A00 selalu "ada" sebagai baseline.
-         * - A04 dan A05 saling exclusive.
+         * Business rule final:
+         * - A00 boleh langsung disimpan.
+         * - A04/A05 TIDAK langsung disimpan dari dropdown dashboard.
+         * - A04/A05 baru disimpan setelah user upload dokumen wajib di halaman Project Document.
+         * - Jika modal Project Document dibatalkan/ditutup, status tetap status sebelumnya.
          */
-        $revision->forceFill([
-            'a00' => 'ada',
-            'a04' => $status === 'A04' ? 'ada' : 'belum_ada',
-            'a05' => $status === 'A05' ? 'ada' : 'belum_ada',
-        ])->save();
+        if ($status === 'A00') {
+            $revision->forceFill([
+                'a00' => 'ada',
+                'a04' => 'belum_ada',
+                'a05' => 'belum_ada',
+            ])->save();
 
-        if ($request->expectsJson() || $request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'status' => $status,
-                'revision_id' => $revision->id,
-                'a00' => $revision->a00,
-                'a04' => $revision->a04,
-                'a05' => $revision->a05,
-            ]);
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'status' => $status,
+                    'revision_id' => $revision->id,
+                    'a00' => $revision->a00,
+                    'a04' => $revision->a04,
+                    'a05' => $revision->a05,
+                ]);
+            }
+
+            return redirect()
+                ->back()
+                ->with('success', 'Status project berhasil diperbarui menjadi A00.');
         }
 
         $projectLabel = trim(implode(' - ', array_filter([
@@ -4252,14 +4260,25 @@ class CostingController extends Controller
             $revision->project?->part_number,
         ]))) ?: '-';
 
-        $redirect = Route::has('database.project-documents')
-            ? redirect()->route('database.project-documents')
-            : redirect()->back();
+        $redirectUrl = Route::has('database.project-documents')
+            ? route('database.project-documents', [], false)
+            : url()->previous();
 
-        return $redirect
-            ->with('success', 'Status project berhasil diperbarui. Silakan upload dokumen ' . $status . '.')
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'pending_document_upload' => true,
+                'status' => $status,
+                'revision_id' => $revision->id,
+                'redirect' => $redirectUrl,
+                'message' => 'Silakan upload dokumen ' . $status . ' terlebih dahulu. Status belum berubah sampai dokumen disimpan.',
+            ]);
+        }
+
+        return redirect($redirectUrl)
+            ->with('warning', 'Silakan upload dokumen ' . $status . ' terlebih dahulu. Status belum berubah sampai dokumen disimpan.')
             ->with('open_document_revision_id', $revision->id)
-            ->with('open_document_target_status', in_array($status, ['A04', 'A05'], true) ? $status : null)
+            ->with('open_document_target_status', $status)
             ->with('status_project_document_project', $projectLabel);
     }
 

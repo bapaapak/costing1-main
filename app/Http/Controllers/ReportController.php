@@ -78,6 +78,31 @@ class ReportController extends Controller
                     ->unique()
                     ->count();
 
+                $cycleTimeRows = collect($item->cycle_times ?? [])
+                    ->filter(function ($row) {
+                        return trim((string) data_get($row, 'process', '')) !== ''
+                            || (float) data_get($row, 'qty', 0) > 0
+                            || (float) data_get($row, 'time_hour', 0) > 0
+                            || (float) data_get($row, 'time_sec', 0) > 0;
+                    })
+                    ->values();
+
+                $cycleTimeIncomplete = $cycleTimeRows->isEmpty()
+                    || $cycleTimeRows->contains(function ($row) {
+                        $process = trim((string) data_get($row, 'process', ''));
+                        $qty = (float) data_get($row, 'qty', 0);
+                        $timeHour = (float) data_get($row, 'time_hour', 0);
+                        $timeSec = (float) data_get($row, 'time_sec', 0);
+
+                        return $process === '' || $qty <= 0 || ($timeHour <= 0 && $timeSec <= 0);
+                    });
+
+                /*
+                 * Di form saat ini field overhead_cost dipakai sebagai Depresiasi Tooling Cost.
+                 * Maka Full Price tidak boleh true kalau Depresiasi Tooling Cost masih kosong / 0.
+                 */
+                $toolingDepreciationIncomplete = (float) ($item->overhead_cost ?? 0) <= 0;
+
                 $trackingRevisionId = $item->tracking_revision_id ?? $item->trackingRevision?->id;
 
                 return (object) [
@@ -104,7 +129,12 @@ class ReportController extends Controller
                     'line' => $item->product->line ?? $item->line ?? '-',
                     'missing_part_count' => $missingPartCount,
                     'estimate_part_count' => $estimatePartCount,
-                    'is_full_price' => $missingPartCount <= 0 && $estimatePartCount <= 0,
+                    'cycle_time_incomplete' => $cycleTimeIncomplete,
+                    'tooling_depreciation_incomplete' => $toolingDepreciationIncomplete,
+                    'is_full_price' => $missingPartCount <= 0
+                        && $estimatePartCount <= 0
+                        && !$cycleTimeIncomplete
+                        && !$toolingDepreciationIncomplete,
                 ];
             })
             ->values();
