@@ -129,7 +129,7 @@
                         </svg>
                         <span>Dashboard</span>
                     </a>
-                        <a href="{{ route('tracking-documents.index', absolute: false) }}"
+                        <a href="{{ route('project', absolute: false) }}"
                         class="sidebar-nav-item {{ request()->routeIs('tracking-documents.*') ? 'active' : '' }}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M3 3v18h18" />

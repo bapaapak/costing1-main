@@ -1,14 +1,12 @@
 <?php
-
+use App\Http\Controllers\TubesController;
+use App\Http\Controllers\Database\DocumentRecapController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CostingController;
-use App\Http\Controllers\Database\DocumentRecapController;
 use App\Http\Controllers\DatabaseController;
 use App\Http\Controllers\DocumentReceiptController;
-use App\Http\Controllers\ProjectGroupController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TrackingDocumentController;
-use App\Http\Controllers\TubesController;
 use Illuminate\Support\Facades\Route;
 
 // Auth routes
@@ -18,19 +16,16 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // All app routes require authentication
 Route::middleware('auth')->group(function () {
+
     Route::get('/project-selection', [AuthController::class, 'projectSelection'])->name('project-selection');
     Route::get('/costing-product-performance', [AuthController::class, 'productPerformance'])->name('costing-product-performance');
 
-    // Project grouped page
-    // Parent = Business Category + Customer + Model
-    // Child = Part Number / Part Name / Revision
-    Route::get('/project', [ProjectGroupController::class, 'index'])->name('project');
 
     Route::get('/profile', function () {
         return view('profile.show');
     })->name('profile.show');
 
-    if (app()->environment(['local', 'development'])) {
+        if (app()->environment(['local', 'development'])) {
         // Test endpoint hanya tersedia di environment development.
         Route::get('/test', function () {
             return response()->json([
@@ -74,7 +69,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/database/rate-kurs', [ReportController::class, 'storeExchangeRate'])->name('rate-kurs.store');
         Route::delete('/database/rate-kurs/{id}', [ReportController::class, 'destroyExchangeRate'])->name('rate-kurs.destroy');
 
+
         // Unpriced
+
         Route::get('/database/unpriced-parts', [ReportController::class, 'unpricedParts'])->name('unpriced-parts');
 
         // Database index & products list
@@ -105,12 +102,13 @@ Route::middleware('auth')->group(function () {
         Route::put('/database/wires/{id}', [DatabaseController::class, 'updateWire'])->name('database.wires.update');
         Route::delete('/database/wires/{id}', [DatabaseController::class, 'destroyWire'])->name('database.wires.destroy');
 
-        // Tubes
-        Route::get('/database/tubes', [TubesController::class, 'index'])->name('database.tubes');
-        Route::post('/database/tubes', [TubesController::class, 'store'])->name('database.tubes.store');
-        Route::put('/database/tubes/{tube}', [TubesController::class, 'update'])->name('database.tubes.update');
-        Route::delete('/database/tubes/{tube}', [TubesController::class, 'destroy'])->name('database.tubes.destroy');
 
+        // Tubes
+
+Route::get('/database/tubes', [TubesController::class, 'index'])->name('database.tubes');
+Route::post('/database/tubes', [TubesController::class, 'store'])->name('database.tubes.store');
+Route::put('/database/tubes/{tube}', [TubesController::class, 'update'])->name('database.tubes.update');
+Route::delete('/database/tubes/{tube}', [TubesController::class, 'destroy'])->name('database.tubes.destroy');
         // Customers
         Route::get('/database/customers', [DatabaseController::class, 'customers'])->name('database.customers');
         Route::post('/database/customers', [DatabaseController::class, 'storeCustomer'])->name('database.customers.store');
@@ -143,7 +141,9 @@ Route::middleware('auth')->group(function () {
 
         // Project Documents
         Route::get('/database/project-documents', [DatabaseController::class, 'projectDocuments'])->name('database.project-documents');
-        Route::get('/database/document-recap', [DocumentRecapController::class, 'index'])->name('database.document-recap');
+
+        Route::get('/database/document-recap', [DocumentRecapController::class, 'index'])
+            ->name('database.document-recap');
         Route::put('/database/project-documents/{id}', [DatabaseController::class, 'updateProjectDocument'])->name('database.project-documents.update');
         Route::delete('/database/project-documents/{id}', [DatabaseController::class, 'destroyProjectDocument'])->name('database.project-documents.destroy');
     });
@@ -203,4 +203,5 @@ Route::middleware('auth')->group(function () {
         Route::put('/permissions/{id}', [AuthController::class, 'updateUser'])->name('permissions.update');
         Route::delete('/permissions/{id}', [AuthController::class, 'destroyUser'])->name('permissions.destroy');
     });
-});
+
+}); // end auth middleware group
