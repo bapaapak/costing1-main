@@ -44,6 +44,12 @@ class DatabaseProjectDocumentService
             'a00Count' => 0,
             'a04Count' => 0,
             'a05Count' => 0,
+            'partlistMasukCount' => 0,
+            'belumPartlistCount' => 0,
+            'revisiPartlistCount' => 0,
+            'umhMasukCount' => 0,
+            'belumUmhCount' => 0,
+            'revisiUmhCount' => 0,
         ];
 
         $rows = $revisions
@@ -63,6 +69,21 @@ class DatabaseProjectDocumentService
                     $status = 'a00';
                     $counts['a00Count']++;
                 }
+
+                if (($revision->partlist ?? null) === 'ada' || !empty($revision->partlist_file_path)) {
+                    $counts['partlistMasukCount']++;
+                } else {
+                    $counts['belumPartlistCount']++;
+                }
+
+                if (($revision->umh ?? null) === 'ada' || !empty($revision->umh_file_path)) {
+                    $counts['umhMasukCount']++;
+                } else {
+                    $counts['belumUmhCount']++;
+                }
+
+                $counts['revisiPartlistCount'] += (int) ($revision->partlist_revision_count ?? 0);
+                $counts['revisiUmhCount'] += (int) ($revision->umh_revision_count ?? 0);
 
                 /*
                  * View lama memakai $row->costingData->customer->name,
@@ -152,8 +173,47 @@ class DatabaseProjectDocumentService
             }
         }
 
+        foreach (['partlist', 'umh'] as $prefix) {
+            $status = $validated[$prefix] ?? 'belum_ada';
+            $revision->$prefix = $status;
+
+            $dateField = $prefix . '_received_date';
+            $fileField = $prefix . '_document_file';
+            $pathField = $prefix . '_file_path';
+            $nameField = $prefix . '_original_name';
+            $revisionCountField = $prefix . '_revision_count';
+
+            if ($status === 'ada') {
+                $revision->$dateField = $validated[$dateField] ?? null;
+                $revision->$revisionCountField = (int) ($validated[$revisionCountField] ?? 0);
+
+                if ($request->hasFile($fileField)) {
+                    $oldPath = $revision->$pathField;
+                    $file = $request->file($fileField);
+                    $path = $file->storeAs(
+                        'tracking-documents/' . $prefix,
+                        now()->format('YmdHis') . '-' . Str::uuid() . '.' . $file->getClientOriginalExtension()
+                    );
+
+                    $revision->$pathField = $path;
+                    $revision->$nameField = $file->getClientOriginalName();
+
+                    if (!empty($oldPath)) {
+                        Storage::delete($oldPath);
+                    }
+                }
+            } else {
+                $this->deleteStoredDocument($revision->$pathField);
+                $revision->$dateField = null;
+                $revision->$pathField = null;
+                $revision->$nameField = null;
+                $revision->$revisionCountField = 0;
+            }
+        }
+
         $revision->save();
     }
+
 
     public function destroy(DocumentRevision $revision): void
     {
@@ -170,8 +230,19 @@ class DatabaseProjectDocumentService
             }
         }
 
+        foreach (['partlist', 'umh'] as $prefix) {
+            $this->deleteStoredDocument($revision->{$prefix . '_file_path'});
+
+            $revision->$prefix = 'belum_ada';
+            $revision->{$prefix . '_received_date'} = null;
+            $revision->{$prefix . '_original_name'} = null;
+            $revision->{$prefix . '_file_path'} = null;
+            $revision->{$prefix . '_revision_count'} = 0;
+        }
+
         $revision->save();
     }
+
 
     private function filterRows(Collection $rows, string $search, string $statusFilter): Collection
     {
@@ -190,6 +261,8 @@ class DatabaseProjectDocumentService
                     $row->project->part_name ?? '',
                     $row->revision->version_label ?? '',
                     $row->revision->status_label ?? '',
+                    $row->revision->partlist_original_name ?? '',
+                    $row->revision->umh_original_name ?? '',
                 ]));
 
                 return str_contains(mb_strtolower($text), $searchLower);

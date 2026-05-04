@@ -42,6 +42,16 @@ class UpdateProjectDocumentRequest extends FormRequest
             'a05' => ['required', 'in:ada,belum_ada'],
             'a05_received_date' => ['nullable', 'date'],
             'a05_document_file' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+
+            'partlist' => ['required', 'in:ada,belum_ada'],
+            'partlist_received_date' => ['nullable', 'date'],
+            'partlist_revision_count' => ['nullable', 'integer', 'min:0', 'max:999'],
+            'partlist_document_file' => ['nullable', 'file', 'mimes:xlsx,xls,csv,pdf', 'max:20480'],
+
+            'umh' => ['required', 'in:ada,belum_ada'],
+            'umh_received_date' => ['nullable', 'date'],
+            'umh_revision_count' => ['nullable', 'integer', 'min:0', 'max:999'],
+            'umh_document_file' => ['nullable', 'file', 'mimes:xlsx,xls,csv,pdf', 'max:20480'],
         ];
     }
 
@@ -75,6 +85,20 @@ class UpdateProjectDocumentRequest extends FormRequest
                 $hasExistingA05Document = $revision && !empty($revision->a05_document_file_path);
                 if (!$this->hasFile('a05_document_file') && !$hasExistingA05Document) {
                     $validator->errors()->add('a05_document_file', 'Dokumen A05 wajib diupload.');
+                }
+            }
+
+            if ($this->input('partlist') === 'ada') {
+                $hasExistingPartlist = $revision && !empty($revision->partlist_file_path);
+                if (!$this->hasFile('partlist_document_file') && !$hasExistingPartlist) {
+                    $validator->errors()->add('partlist_document_file', 'Dokumen Partlist wajib diupload jika status Partlist = Ada.');
+                }
+            }
+
+            if ($this->input('umh') === 'ada') {
+                $hasExistingUmh = $revision && !empty($revision->umh_file_path);
+                if (!$this->hasFile('umh_document_file') && !$hasExistingUmh) {
+                    $validator->errors()->add('umh_document_file', 'Dokumen UMH wajib diupload jika status UMH = Ada.');
                 }
             }
         });

@@ -1,6 +1,5 @@
 <?php
 use App\Http\Controllers\TubesController;
-use App\Http\Controllers\Database\DocumentRecapController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CostingController;
 use App\Http\Controllers\DatabaseController;
@@ -142,8 +141,9 @@ Route::delete('/database/tubes/{tube}', [TubesController::class, 'destroy'])->na
         // Project Documents
         Route::get('/database/project-documents', [DatabaseController::class, 'projectDocuments'])->name('database.project-documents');
 
-        Route::get('/database/document-recap', [DocumentRecapController::class, 'index'])
-            ->name('database.document-recap');
+        Route::get('/database/document-recap', function () {
+            return view('database.document-recap');
+        })->name('database.document-recap');
         Route::put('/database/project-documents/{id}', [DatabaseController::class, 'updateProjectDocument'])->name('database.project-documents.update');
         Route::delete('/database/project-documents/{id}', [DatabaseController::class, 'destroyProjectDocument'])->name('database.project-documents.destroy');
     });

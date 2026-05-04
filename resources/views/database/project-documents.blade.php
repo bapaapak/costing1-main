@@ -43,12 +43,17 @@
             margin-bottom: 1.5rem;
         }
         .doc-summary-card {
+            min-height: 88px;
             padding: 1.25rem;
             border-radius: 12px;
             color: #fff;
             display: flex;
             flex-direction: column;
+            justify-content: center;
             gap: 0.25rem;
+            width: 100%;
+            box-sizing: border-box;
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
         }
         .doc-summary-card .doc-label { font-size: 0.78rem; font-weight: 600; opacity: 0.9; }
         .doc-summary-card .doc-count { font-size: 1.75rem; font-weight: 800; }
@@ -81,7 +86,7 @@
             padding: 1.5rem;
         }
         .doc-modal-content.doc-modal-wide {
-            max-width: 820px;
+            max-width: 1180px;
         }
         .doc-modal-header {
             display: flex; justify-content: space-between; align-items: center;
@@ -115,6 +120,8 @@
         .doc-section-col:nth-child(1) .doc-section-title { color: #2563eb; border-color: #93c5fd; }
         .doc-section-col:nth-child(2) .doc-section-title { color: #dc2626; border-color: #fca5a5; }
         .doc-section-col:nth-child(3) .doc-section-title { color: #16a34a; border-color: #86efac; }
+        .doc-section-col:nth-child(4) .doc-section-title { color: #2563eb; border-color: #93c5fd; }
+        .doc-section-col:nth-child(5) .doc-section-title { color: #0f766e; border-color: #5eead4; }
         .btn-action {
             display: inline-flex; align-items: center; justify-content: center;
             border: 0; border-radius: 6px; padding: 0.35rem; cursor: pointer;
@@ -146,6 +153,134 @@
         .td-a00 { background: #eff6ff; }
         .td-a04 { background: #fef2f2; }
         .td-a05 { background: #f0fdf4; }
+
+        /* Engineering document collection cards */
+        .engineering-doc-panel {
+            background: #fff;
+            border: 1px solid var(--slate-200);
+            border-radius: 14px;
+            padding: 1.15rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+        }
+        .engineering-doc-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .engineering-doc-title {
+            margin: 0;
+            color: var(--slate-800);
+            font-size: 1rem;
+            font-weight: 850;
+        }
+        .engineering-doc-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .btn-folder-storage {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            min-height: 34px;
+            padding: 0.48rem 0.75rem;
+            border-radius: 9px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border: 1px solid rgba(37, 99, 235, 0.25);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 900;
+            text-decoration: none;
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+            white-space: nowrap;
+        }
+        .btn-folder-storage:hover {
+            filter: brightness(1.03);
+            transform: translateY(-1px);
+        }
+        .engineering-doc-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.65rem;
+            border-radius: 9px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #475569;
+            font-size: 0.72rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .engineering-doc-cards {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+        .engineering-doc-card {
+            min-height: 86px;
+            border-radius: 13px;
+            border: 1px solid transparent;
+            padding: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            overflow: hidden;
+        }
+        .engineering-doc-card.blue { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-color: #bfdbfe; color: #1d4ed8; }
+        .engineering-doc-card.yellow { background: linear-gradient(135deg, #fffbeb, #fef3c7); border-color: #fde68a; color: #b45309; }
+        .engineering-doc-card.orange { background: linear-gradient(135deg, #fff7ed, #ffedd5); border-color: #fed7aa; color: #ea580c; }
+        .engineering-doc-card.green { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-color: #bbf7d0; color: #15803d; }
+        .engineering-doc-card.red { background: linear-gradient(135deg, #fef2f2, #fee2e2); border-color: #fecaca; color: #dc2626; }
+        .engineering-doc-card.purple { background: linear-gradient(135deg, #faf5ff, #f3e8ff); border-color: #e9d5ff; color: #7e22ce; }
+        .engineering-doc-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.66);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
+            flex: 0 0 auto;
+        }
+        .engineering-doc-icon svg {
+            width: 22px;
+            height: 22px;
+        }
+        .engineering-doc-label {
+            font-size: 0.76rem;
+            font-weight: 850;
+            margin-bottom: 0.18rem;
+        }
+        .engineering-doc-count {
+            font-size: 1.55rem;
+            line-height: 1;
+            font-weight: 950;
+        }
+        .engineering-doc-unit {
+            font-size: 0.72rem;
+            color: var(--slate-600);
+            font-weight: 750;
+            margin-top: 0.28rem;
+        }
+        .th-partlist { background: #2563eb !important; color: #fff !important; }
+        .th-umh { background: #0f766e !important; color: #fff !important; }
+        .td-partlist { background: #f8fafc; }
+        .td-umh { background: #f0fdfa; }
+        @media (max-width: 1280px) {
+            .engineering-doc-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 768px) {
+            .engineering-doc-cards { grid-template-columns: 1fr; }
+            .engineering-doc-head { align-items: flex-start; flex-direction: column; }
+            .engineering-doc-note { white-space: normal; }
+        }
     </style>
 
     @if(session('success'))
@@ -172,6 +307,129 @@
         <div class="doc-summary-card" style="background: #16a34a;">
             <span class="doc-label">A05 (Die Go)</span>
             <span class="doc-count">{{ $a05Count }}</span>
+        </div>
+    </div>
+
+    @php
+        $partlistMasukCount = $partlistMasukCount ?? 0;
+        $belumPartlistCount = $belumPartlistCount ?? 0;
+        $revisiPartlistCount = $revisiPartlistCount ?? 0;
+        $umhMasukCount = $umhMasukCount ?? 0;
+        $belumUmhCount = $belumUmhCount ?? 0;
+        $revisiUmhCount = $revisiUmhCount ?? 0;
+    @endphp
+
+    <div class="engineering-doc-panel">
+        <div class="engineering-doc-head">
+            <h3 class="engineering-doc-title">Pengumpulan Dokumen Engineering</h3>
+            <div class="engineering-doc-actions">
+                <div class="engineering-doc-note">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M12 8h.01"></path>
+                        <path d="M11 12h1v5h1"></path>
+                    </svg>
+                    Pengumpulan Partlist dapat lebih dari 1x karena adanya revisi atau perubahan spesifikasi dari customer.
+                </div>
+                <a href="{{ route('database.document-recap', absolute: false) }}" class="btn-folder-storage">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H3V7Z"></path>
+                        <path d="M3 10h18v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7Z"></path>
+                    </svg>
+                    Buka Folder Penyimpanan
+                </a>
+            </div>
+        </div>
+
+        <div class="engineering-doc-cards">
+            <div class="engineering-doc-card blue">
+                <div class="engineering-doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                        <path d="M4 4h16v16H4z"></path>
+                        <path d="M8 8h8M8 12h8M8 16h5"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="engineering-doc-label">Partlist Masuk</div>
+                    <div class="engineering-doc-count">{{ number_format($partlistMasukCount, 0, ',', '.') }}</div>
+                    <div class="engineering-doc-unit">project</div>
+                </div>
+            </div>
+
+            <div class="engineering-doc-card yellow">
+                <div class="engineering-doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M12 7v5l3 2"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="engineering-doc-label">Belum Partlist</div>
+                    <div class="engineering-doc-count">{{ number_format($belumPartlistCount, 0, ',', '.') }}</div>
+                    <div class="engineering-doc-unit">project</div>
+                </div>
+            </div>
+
+            <div class="engineering-doc-card orange">
+                <div class="engineering-doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                        <path d="M21 12a9 9 0 0 1-15.4 6.36"></path>
+                        <path d="M3 12A9 9 0 0 1 18.4 5.64"></path>
+                        <path d="M3 3v6h6"></path>
+                        <path d="M21 21v-6h-6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="engineering-doc-label">Revisi Partlist</div>
+                    <div class="engineering-doc-count">{{ number_format($revisiPartlistCount, 0, ',', '.') }}</div>
+                    <div class="engineering-doc-unit">revisi</div>
+                </div>
+            </div>
+
+            <div class="engineering-doc-card green">
+                <div class="engineering-doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                        <path d="M7 3h7l5 5v13H7z"></path>
+                        <path d="M14 3v5h5"></path>
+                        <path d="M10 13h6M10 17h6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="engineering-doc-label">UMH Masuk</div>
+                    <div class="engineering-doc-count">{{ number_format($umhMasukCount, 0, ',', '.') }}</div>
+                    <div class="engineering-doc-unit">project</div>
+                </div>
+            </div>
+
+            <div class="engineering-doc-card red">
+                <div class="engineering-doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M12 7v5l3 2"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="engineering-doc-label">Belum UMH</div>
+                    <div class="engineering-doc-count">{{ number_format($belumUmhCount, 0, ',', '.') }}</div>
+                    <div class="engineering-doc-unit">project</div>
+                </div>
+            </div>
+
+            <div class="engineering-doc-card purple">
+                <div class="engineering-doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                        <path d="M21 12a9 9 0 0 1-15.4 6.36"></path>
+                        <path d="M3 12A9 9 0 0 1 18.4 5.64"></path>
+                        <path d="M3 3v6h6"></path>
+                        <path d="M21 21v-6h-6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="engineering-doc-label">Revisi UMH</div>
+                    <div class="engineering-doc-count">{{ number_format($revisiUmhCount, 0, ',', '.') }}</div>
+                    <div class="engineering-doc-unit">revisi</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -220,7 +478,7 @@
             <span style="font-size: 0.8rem; color: var(--slate-500);">Menampilkan {{ $pagedRows->firstItem() }}–{{ $pagedRows->lastItem() }} dari {{ $pagedRows->total() }} data</span>
         </div>
         <div class="material-table-container">
-            <table class="data-table" id="docProjectTable" style="min-width: 1200px;">
+            <table class="data-table" id="docProjectTable" style="min-width: 1820px;">
                 <thead>
                     <tr>
                         <th style="width: 40px;">No.</th>
@@ -237,6 +495,14 @@
                         <th class="th-a05" style="text-align: center;">A05</th>
                         <th class="th-a05">Tgl Diterima A05</th>
                         <th class="th-a05">Dokumen A05</th>
+                        <th class="th-partlist" style="text-align: center;">Partlist</th>
+                        <th class="th-partlist">Tgl Diterima Partlist</th>
+                        <th class="th-partlist">Dokumen Partlist</th>
+                        <th class="th-partlist">Revisi Partlist</th>
+                        <th class="th-umh" style="text-align: center;">UMH</th>
+                        <th class="th-umh">Tgl Diterima UMH</th>
+                        <th class="th-umh">Dokumen UMH</th>
+                        <th class="th-umh">Revisi UMH</th>
                         <th style="width: 80px; text-align: center;">Aksi</th>
                     </tr>
                 </thead>
@@ -249,6 +515,24 @@
                             $hasA00 = ($rev->a00 ?? '') === 'ada';
                             $hasA04 = ($rev->a04 ?? '') === 'ada';
                             $hasA05 = ($rev->a05 ?? '') === 'ada';
+
+                            $hasPartlist = (bool) data_get($rev, 'partlist_file_path')
+                                || data_get($rev, 'partlist') === 'ada'
+                                || (bool) data_get($rev, 'partlist_original_name');
+
+                            $hasUmh = (bool) data_get($rev, 'umh_file_path')
+                                || data_get($rev, 'umh') === 'ada'
+                                || (bool) data_get($rev, 'umh_original_name');
+
+                            $partlistReceivedDate = data_get($rev, 'partlist_received_date');
+                            $umhReceivedDate = data_get($rev, 'umh_received_date');
+
+                            $partlistDocName = data_get($rev, 'partlist_original_name') ?: '';
+                            $umhDocName = data_get($rev, 'umh_original_name') ?: '';
+
+                            $partlistRevisionCount = (int) (data_get($rev, 'partlist_revision_count') ?? 0);
+                            $umhRevisionCount = (int) (data_get($rev, 'umh_revision_count') ?? 0);
+
                             $priorityStatus = $row->status;
                         @endphp
                         <tr data-search="{{ strtolower(implode(' ', array_filter([
@@ -335,6 +619,70 @@
                                     <span style="color: var(--slate-400);">-</span>
                                 @endif
                             </td>
+
+                            {{-- Partlist --}}
+                            <td class="td-partlist" style="text-align: center;">
+                                <span class="doc-status-badge {{ $hasPartlist ? 'ada' : 'belum' }}">
+                                    @if($hasPartlist)
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                        Ada
+                                    @else
+                                        Belum
+                                    @endif
+                                </span>
+                            </td>
+                            <td class="td-partlist">
+                                @if($hasPartlist && $partlistReceivedDate)
+                                    {{ \Carbon\Carbon::parse($partlistReceivedDate)->format('d M Y') }}
+                                @else
+                                    -
+                                @endif
+                            </td>
+                            <td class="td-partlist">
+                                @if($hasPartlist)
+                                    <a href="{{ route('tracking-documents.download', [$rev->id, 'partlist']) }}" class="doc-download-link" title="{{ $partlistDocName }}">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        {{ Str::limit($partlistDocName, 24) }}
+                                    </a>
+                                @else
+                                    <span style="color: var(--slate-400);">-</span>
+                                @endif
+                            </td>
+                            <td class="td-partlist" style="text-align:center;">
+                                {{ $partlistRevisionCount > 0 ? $partlistRevisionCount . 'x' : '-' }}
+                            </td>
+
+                            {{-- UMH --}}
+                            <td class="td-umh" style="text-align: center;">
+                                <span class="doc-status-badge {{ $hasUmh ? 'ada' : 'belum' }}">
+                                    @if($hasUmh)
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                        Ada
+                                    @else
+                                        Belum
+                                    @endif
+                                </span>
+                            </td>
+                            <td class="td-umh">
+                                @if($hasUmh && $umhReceivedDate)
+                                    {{ \Carbon\Carbon::parse($umhReceivedDate)->format('d M Y') }}
+                                @else
+                                    -
+                                @endif
+                            </td>
+                            <td class="td-umh">
+                                @if($hasUmh)
+                                    <a href="{{ route('tracking-documents.download', [$rev->id, 'umh']) }}" class="doc-download-link" title="{{ $umhDocName }}">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        {{ Str::limit($umhDocName, 24) }}
+                                    </a>
+                                @else
+                                    <span style="color: var(--slate-400);">-</span>
+                                @endif
+                            </td>
+                            <td class="td-umh" style="text-align:center;">
+                                {{ $umhRevisionCount > 0 ? $umhRevisionCount . 'x' : '-' }}
+                            </td>
                             {{-- Aksi --}}
                             <td style="text-align: center; white-space: nowrap;">
                                 <div style="display: inline-flex; gap: 0.35rem;">
@@ -353,6 +701,14 @@
                                             'a05' => $rev->a05 ?? '',
                                             'a05_received_date' => $hasA05 && $rev->a05_received_date ? $rev->a05_received_date->format('Y-m-d') : '',
                                             'a05_doc' => $rev->a05_document_original_name ?? '',
+                                            'partlist' => $rev->partlist ?? '',
+                                            'partlist_received_date' => $hasPartlist && $rev->partlist_received_date ? \Carbon\Carbon::parse($rev->partlist_received_date)->format('Y-m-d') : '',
+                                            'partlist_doc' => $rev->partlist_original_name ?? '',
+                                            'partlist_revision_count' => $rev->partlist_revision_count ?? 0,
+                                            'umh' => $rev->umh ?? '',
+                                            'umh_received_date' => $hasUmh && $rev->umh_received_date ? \Carbon\Carbon::parse($rev->umh_received_date)->format('Y-m-d') : '',
+                                            'umh_doc' => $rev->umh_original_name ?? '',
+                                            'umh_revision_count' => $rev->umh_revision_count ?? 0,
                                         ]) }})">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -371,7 +727,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="15" style="text-align: center; color: var(--slate-400); padding: 2rem;">
+                            <td colspan="23" style="text-align: center; color: var(--slate-400); padding: 2rem;">
                                 Belum ada data dokumen project.
                             </td>
                         </tr>
@@ -485,6 +841,60 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Partlist Column --}}
+                    <div class="doc-section-col">
+                        <div class="doc-section-title">Partlist</div>
+                        <div class="doc-form-group">
+                            <label>Status</label>
+                            <select name="partlist" id="editPartlistStatus" class="form-select" onchange="toggleEditDateWrap('partlist')">
+                                <option value="belum_ada">Belum Ada</option>
+                                <option value="ada">Ada</option>
+                            </select>
+                        </div>
+                        <div id="editPartlistDateWrap" style="display:none;">
+                            <div class="doc-form-group">
+                                <label>Tanggal Diterima</label>
+                                <input type="date" name="partlist_received_date" id="editPartlistDate" class="form-input">
+                            </div>
+                            <div class="doc-form-group">
+                                <label>Dokumen (Excel/PDF) <span style="color:#dc2626;">*</span></label>
+                                <input type="file" name="partlist_document_file" id="editPartlistFile" accept=".xlsx,.xls,.csv,.pdf" class="form-input" style="font-size:0.75rem;">
+                                <small id="editPartlistDocName" style="color: var(--slate-500); font-size: 0.72rem;"></small>
+                            </div>
+                            <div class="doc-form-group">
+                                <label>Jumlah Revisi</label>
+                                <input type="number" min="0" name="partlist_revision_count" id="editPartlistRevisionCount" class="form-input" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- UMH Column --}}
+                    <div class="doc-section-col">
+                        <div class="doc-section-title">UMH</div>
+                        <div class="doc-form-group">
+                            <label>Status</label>
+                            <select name="umh" id="editUmhStatus" class="form-select" onchange="toggleEditDateWrap('umh')">
+                                <option value="belum_ada">Belum Ada</option>
+                                <option value="ada">Ada</option>
+                            </select>
+                        </div>
+                        <div id="editUmhDateWrap" style="display:none;">
+                            <div class="doc-form-group">
+                                <label>Tanggal Diterima</label>
+                                <input type="date" name="umh_received_date" id="editUmhDate" class="form-input">
+                            </div>
+                            <div class="doc-form-group">
+                                <label>Dokumen (Excel/PDF) <span style="color:#dc2626;">*</span></label>
+                                <input type="file" name="umh_document_file" id="editUmhFile" accept=".xlsx,.xls,.csv,.pdf" class="form-input" style="font-size:0.75rem;">
+                                <small id="editUmhDocName" style="color: var(--slate-500); font-size: 0.72rem;"></small>
+                            </div>
+                            <div class="doc-form-group">
+                                <label>Jumlah Revisi</label>
+                                <input type="number" min="0" name="umh_revision_count" id="editUmhRevisionCount" class="form-input" value="0">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="doc-form-actions">
@@ -586,6 +996,20 @@
         document.getElementById('editA05DocName').textContent = data.a05_doc ? 'File saat ini: ' + data.a05_doc : '';
         toggleEditDateWrap('a05');
 
+        // Partlist
+        document.getElementById('editPartlistStatus').value = data.partlist === 'ada' ? 'ada' : 'belum_ada';
+        document.getElementById('editPartlistDate').value = data.partlist_received_date || '';
+        document.getElementById('editPartlistDocName').textContent = data.partlist_doc ? 'File saat ini: ' + data.partlist_doc : '';
+        document.getElementById('editPartlistRevisionCount').value = data.partlist_revision_count || 0;
+        toggleEditDateWrap('partlist');
+
+        // UMH
+        document.getElementById('editUmhStatus').value = data.umh === 'ada' ? 'ada' : 'belum_ada';
+        document.getElementById('editUmhDate').value = data.umh_received_date || '';
+        document.getElementById('editUmhDocName').textContent = data.umh_doc ? 'File saat ini: ' + data.umh_doc : '';
+        document.getElementById('editUmhRevisionCount').value = data.umh_revision_count || 0;
+        toggleEditDateWrap('umh');
+
         // Apply business rules after loading values
         applyBusinessRules('');
 
@@ -655,6 +1079,12 @@
         const a05File = document.getElementById('editA05File');
         const a04DocName = document.getElementById('editA04DocName');
         const a05DocName = document.getElementById('editA05DocName');
+        const partlist = document.getElementById('editPartlistStatus');
+        const umh = document.getElementById('editUmhStatus');
+        const partlistFile = document.getElementById('editPartlistFile');
+        const umhFile = document.getElementById('editUmhFile');
+        const partlistDocName = document.getElementById('editPartlistDocName');
+        const umhDocName = document.getElementById('editUmhDocName');
 
         if (a04 && a04.value === 'ada') {
             if (!a04Reason || a04Reason.value.trim() === '') {
@@ -676,6 +1106,24 @@
             if ((!a05File || a05File.files.length === 0) && !hasExistingA05Doc) {
                 alert('Dokumen A05 wajib diupload.');
                 a05File?.focus();
+                return false;
+            }
+        }
+
+        if (partlist && partlist.value === 'ada') {
+            const hasExistingPartlistDoc = partlistDocName && partlistDocName.textContent.trim() !== '';
+            if ((!partlistFile || partlistFile.files.length === 0) && !hasExistingPartlistDoc) {
+                alert('Dokumen Partlist wajib diupload.');
+                partlistFile?.focus();
+                return false;
+            }
+        }
+
+        if (umh && umh.value === 'ada') {
+            const hasExistingUmhDoc = umhDocName && umhDocName.textContent.trim() !== '';
+            if ((!umhFile || umhFile.files.length === 0) && !hasExistingUmhDoc) {
+                alert('Dokumen UMH wajib diupload.');
+                umhFile?.focus();
                 return false;
             }
         }
