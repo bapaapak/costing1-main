@@ -2033,6 +2033,24 @@ class CostingController extends Controller
     }
 
 
+
+    private function toStoreCostingRequest(Request $request): StoreCostingRequest
+    {
+        /*
+         * Route import-partlist / import-umh / import-cycle-time menerima Illuminate\Http\Request.
+         * Method store() membutuhkan StoreCostingRequest karena memakai validated()
+         * dan resolvedUpdateSection(), jadi request upload harus dikonversi dulu.
+         */
+        $storeRequest = StoreCostingRequest::createFrom($request);
+        $storeRequest->setContainer(app());
+        $storeRequest->setRedirector(app('redirect'));
+        $storeRequest->setUserResolver($request->getUserResolver());
+        $storeRequest->setRouteResolver($request->getRouteResolver());
+        $storeRequest->validateResolved();
+
+        return $storeRequest;
+    }
+
     public function importPartlist(Request $request, CostingImportService $importService, CostingMaterialService $materialService, CostingPersistenceService $persistenceService, CostingStatusService $statusService, CostingResponseService $responseService)
     {
         $request->merge([
