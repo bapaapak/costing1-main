@@ -535,6 +535,13 @@
                         </td>
                         <td>
                             <div class="action-stack">
+                                <a class="action-link" href="{{ route('tracking-documents.create', [
+                                    'business_category' => $group->business_category,
+                                    'customer' => $group->customer,
+                                    'model' => $group->model,
+                                ], false) }}">
+                                    + New Project
+                                </a>
                                 <button type="button" class="action-link" onclick="toggleProjectGroup('{{ $rowId }}')">
                                     Lihat Semua Part
                                 </button>
