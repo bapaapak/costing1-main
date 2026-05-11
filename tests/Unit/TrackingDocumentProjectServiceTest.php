@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Models\DocumentRevision;
 use App\Services\TrackingDocument\TrackingDocumentFileService;
 use App\Services\TrackingDocument\TrackingDocumentProjectService;
 use PHPUnit\Framework\TestCase;
@@ -16,11 +17,11 @@ class TrackingDocumentProjectServiceTest extends TestCase
         $method = $reflection->getMethod('resolveDocumentUpdate');
         $method->setAccessible(true);
 
-        $revision = new class {
-            public $a00 = 'ada';
-            public $a00_document_file_path = 'tracking-documents/a00/file.pdf';
-            public $a00_document_original_name = 'file.pdf';
-        };
+        $revision = new DocumentRevision([
+            'a00' => 'ada',
+            'a00_document_file_path' => 'tracking-documents/a00/file.pdf',
+            'a00_document_original_name' => 'file.pdf',
+        ]);
 
         $request = new \Illuminate\Http\Request();
         $result = $method->invoke($service, $revision, $request, ['a00' => 'belum_ada'], 'a00');

@@ -60,7 +60,7 @@ RUN sed -i 's|listen = /run/php-fpm/www.sock|listen = 127.0.0.1:9000|g' /usr/loc
     sed -i 's|listen = 9000|listen = 127.0.0.1:9000|g' /usr/local/etc/php-fpm.d/zz-docker.conf 2>/dev/null || true
 
 # PHP config for production (show errors temporarily for debugging)
-RUN echo "display_errors=On" >> /usr/local/etc/php/conf.d/app.ini && \
+RUN echo "display_errors=Off" >> /usr/local/etc/php/conf.d/app.ini && \
     echo "error_reporting=E_ALL" >> /usr/local/etc/php/conf.d/app.ini && \
     echo "log_errors=On" >> /usr/local/etc/php/conf.d/app.ini && \
     echo "upload_max_filesize=50M" >> /usr/local/etc/php/conf.d/app.ini && \

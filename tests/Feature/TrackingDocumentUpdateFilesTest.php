@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\DocumentProject;
 use App\Models\DocumentRevision;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -13,8 +14,11 @@ class TrackingDocumentUpdateFilesTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_update_files_creates_new_revision_and_increments_version(): void
+    public function test_update_files_updates_existing_revision_and_increments_file_counter(): void
     {
+        $user = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($user);
+
         Storage::fake();
 
         $oldPartlistPath = 'tracking-documents/partlist/old-partlist.xlsx';
@@ -53,25 +57,23 @@ class TrackingDocumentUpdateFilesTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('success');
 
-        $this->assertDatabaseCount('document_revisions', 2);
+        $this->assertDatabaseCount('document_revisions', 1);
 
-        $newRevision = DocumentRevision::where('document_project_id', $project->id)
-            ->orderByDesc('version_number')
-            ->first();
+        $updatedRevision = $revision->fresh();
 
-        $this->assertNotNull($newRevision);
-        $this->assertSame(2, $newRevision->version_number);
-        $this->assertSame(DocumentRevision::STATUS_PENDING_FORM_INPUT, $newRevision->status);
-        $this->assertNull($newRevision->pic_marketing);
-        $this->assertSame('new-partlist.xlsx', $newRevision->partlist_original_name);
-        $this->assertNotSame($oldPartlistPath, $newRevision->partlist_file_path);
-        $this->assertSame($oldUmhPath, $newRevision->umh_file_path);
-        $this->assertSame('old-umh.xlsx', $newRevision->umh_original_name);
-        $this->assertSame('Update partlist dari engineering', $newRevision->change_remark);
+        $this->assertNotNull($updatedRevision);
+        $this->assertSame(1, $updatedRevision->version_number);
+        $this->assertSame(DocumentRevision::STATUS_SUBMITTED_TO_MARKETING, $updatedRevision->status);
+        $this->assertSame('new-partlist.xlsx', $updatedRevision->partlist_original_name);
+        $this->assertNotSame($oldPartlistPath, $updatedRevision->partlist_file_path);
+        $this->assertSame(1, (int) $updatedRevision->partlist_update_count);
+        $this->assertNotNull($updatedRevision->partlist_updated_at);
+        $this->assertSame($oldUmhPath, $updatedRevision->umh_file_path);
+        $this->assertSame('old-umh.xlsx', $updatedRevision->umh_original_name);
+        $this->assertSame(0, (int) $updatedRevision->umh_update_count);
+        $this->assertSame('Update partlist dari engineering', $updatedRevision->change_remark);
 
-        // Existing files are preserved for historical revisions.
-        $this->assertTrue(Storage::exists($oldPartlistPath));
         $this->assertTrue(Storage::exists($oldUmhPath));
-        $this->assertTrue(Storage::exists($newRevision->partlist_file_path));
+        $this->assertTrue(Storage::exists($updatedRevision->partlist_file_path));
     }
 }

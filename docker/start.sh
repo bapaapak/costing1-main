@@ -14,23 +14,22 @@ printenv | grep -E '^(APP_|DB_|CACHE_|SESSION_|MAIL_|LOG_|QUEUE_|BROADCAST_|FILE
     echo "${key}=\"${value}\""
 done | sort > .env
 echo "Generated .env from environment variables"
-cat .env
 
 # Discover packages (skipped during build)
-php artisan package:discover --ansi || true
+php artisan package:discover --ansi
 
 # Generate app key if missing
 if [ -z "$APP_KEY" ]; then
-    php artisan key:generate --force || true
+    php artisan key:generate --force
 fi
 
 # Run migrations
-php artisan migrate --force --no-interaction || true
+php artisan migrate --force --no-interaction
 
 # Cache config, routes, views for production
-php artisan config:cache || true
-php artisan route:cache || true
-php artisan view:cache || true
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
 
 echo "Starting nginx + php-fpm..."
 
